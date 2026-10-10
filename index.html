@@ -271,6 +271,7 @@ main{margin:0;padding:20px 14px 95px}
     <article class="card"><div class="stat-top">Unpaid total <span class="stat-icon">▤</span></div><div class="amount" id="billUnpaidTotal">$0</div><div class="stat-foot">Bills not yet marked paid</div></article>
     <article class="card"><div class="stat-top">Due in 7 days <span class="stat-icon">◷</span></div><div class="amount" id="billWeekTotal">$0</div><div class="stat-foot">Based on the due dates entered</div></article>
   </div>
+  <div class="card"><div class="section-head"><div><h2>Due-date calendar</h2><p>Upcoming bills in the next 30 days.</p></div></div><div id="billCalendarList"></div></div>
   <div class="card"><div class="section-head"><div><h2>Your bills</h2><p>Know what's due and when.</p></div><button class="btn primary" id="addBill">＋ Add a bill</button></div><div class="table-wrap"><table><thead><tr><th>Bill</th><th>Due date</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="billTable"></tbody></table></div></div>
 </section>
 
@@ -512,7 +513,7 @@ function loadState(){
 let state=loadState();
 state.monthlyBudgets=state.monthlyBudgets||{};
 if(!state.monthlyBudgets[currentMonth])state.monthlyBudgets[currentMonth]={...(state.budgets||{})};
-state.workProfile=state.workProfile||{rate:0,frequency:"biweekly",nextPayday:localDate(new Date(today.getFullYear(),today.getMonth(),today.getDate()+7,12)),weekStart:0,federalRate:10,stateRate:3,otherDeductions:0};
+state.workProfile={rate:0,frequency:"biweekly",nextPayday:localDate(new Date(today.getFullYear(),today.getMonth(),today.getDate()+7,12)),weekStart:0,federalRate:10,stateRate:3,otherDeductions:0,...(state.workProfile||{})};
 state.shifts=Array.isArray(state.shifts)?state.shifts:[];
 let activePage="overview";
 let contributeGoalId=null;
@@ -756,6 +757,28 @@ $("setBudget").addEventListener("click",()=>{const form=$("budgetForm");form.res
 $("budgetForm").addEventListener("submit",e=>{e.preventDefault();const d=new FormData(e.currentTarget),category=String(d.get("category")),amount=Number(d.get("amount"));if(!validAmount(amount,.01)){toast("Enter a budget amount greater than zero.","error");return}state.monthlyBudgets=state.monthlyBudgets||{};state.monthlyBudgets[selectedMonth]=state.monthlyBudgets[selectedMonth]||{};state.monthlyBudgets[selectedMonth][category]=amount;if(selectedMonth===currentMonth)state.budgets={...state.monthlyBudgets[selectedMonth]};save();render();closeDialog("budgetDialog");toast(category+" budget saved for "+monthLabel(selectedMonth)+".")});
 document.addEventListener("click",e=>{const b=e.target.closest("button[data-edit-budget]");if(!b)return;const category=b.dataset.editBudget,form=$("budgetForm");form.elements.category.value=category;form.elements.amount.value=(state.monthlyBudgets?.[selectedMonth]||state.budgets||{})[category]||"";showDialog("budgetDialog")});
 $("quickAdd").addEventListener("click",openTransaction);$("addTransaction2").addEventListener("click",openTransaction);
+$("workProfileForm").addEventListener("submit",e=>{
+ e.preventDefault();const d=new FormData(e.currentTarget),rate=Number(d.get("rate")),federalRate=Number(d.get("federalRate")),stateRate=Number(d.get("stateRate")),otherDeductions=Number(d.get("otherDeductions"));
+ if(!validAmount(rate,.01)||!validAmount(federalRate,0)||federalRate>40||!validAmount(stateRate,0)||stateRate>10||!validAmount(otherDeductions,0)){toast("Check your pay settings and enter valid amounts.","error");return}
+ state.workProfile={rate,frequency:String(d.get("frequency")),nextPayday:String(d.get("nextPayday")),weekStart:Number(d.get("weekStart")),federalRate,stateRate,otherDeductions};save();e.currentTarget.dataset.loaded="true";render();toast("Pay settings saved.");
+});
+$("shiftForm").addEventListener("submit",e=>{
+ e.preventDefault();const d=new FormData(e.currentTarget),rec={date:String(d.get("date")),start:String(d.get("start")),end:String(d.get("end")),breakMinutes:Number(d.get("breakMinutes")),note:String(d.get("note")||"").trim()};
+ if(!rec.date||!rec.start||!rec.end||!Number.isInteger(rec.breakMinutes)||rec.breakMinutes<0||rec.breakMinutes>720||shiftHours(rec)<=0){toast("Check the shift date, times, and unpaid break.","error");return}
+ if(editingShift){const old=state.shifts.find(x=>x.id===editingShift);if(old)Object.assign(old,rec);else state.shifts.push({id:id(),...rec})}else state.shifts.push({id:id(),...rec});
+ save();e.currentTarget.reset();e.currentTarget.elements.date.value=dateForSelectedMonth();e.currentTarget.elements.breakMinutes.value="0";e.currentTarget.querySelector('button[type="submit"]').textContent="＋ Save shift";editingShift=null;render();toast("Shift saved.");
+});
+document.addEventListener("click",e=>{
+ const edit=e.target.closest("[data-edit-shift]"),del=e.target.closest("[data-delete-shift]");
+ if(edit){const x=state.shifts.find(y=>y.id===edit.dataset.editShift);if(!x)return;editingShift=x.id;const f=$("shiftForm");f.elements.date.value=x.date;f.elements.start.value=x.start;f.elements.end.value=x.end;f.elements.breakMinutes.value=x.breakMinutes||0;f.elements.note.value=x.note||"";f.querySelector('button[type="submit"]').textContent="Save shift changes";f.scrollIntoView({behavior:"smooth",block:"center"});}
+ if(del){const x=state.shifts.find(y=>y.id===del.dataset.deleteShift);if(!x)return;state.shifts=state.shifts.filter(y=>y.id!==x.id);save();render();toast("Shift removed.");}
+});
+$("addPaycheckIncome").addEventListener("click",()=>{
+ const calc=shiftCalculations(),shifts=state.shifts.filter(x=>monthKey(x.date)===selectedMonth),gross=shifts.reduce((sum,x)=>sum+(calc[x.id]?.gross||0),0),net=estimatedDeductions(gross).net,date=nextPaydayDate();
+ if(net<=0){toast("Log shifts and set your hourly rate before recording estimated pay.","error");return}
+ if(state.transactions.some(t=>t.type==="income"&&t.date===date&&t.note==="Estimated pay from Work & Pay planner")){toast("An estimated paycheck is already recorded for that date.","error");return}
+ state.transactions.push({id:id(),description:"Estimated paycheck",type:"income",amount:Math.round(net*100)/100,date,category:"Salary",note:"Estimated pay from Work & Pay planner"});save();render();toast("Estimated paycheck recorded as income.");
+});
 $("addBill").addEventListener("click",openBill);$("addGoal").addEventListener("click",()=>openGoal());
 document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeDialog(b.dataset.close)));
 $("transactionSearch").addEventListener("input",renderTransactions);$("transactionFilter").addEventListener("change",renderTransactions);
@@ -790,7 +813,7 @@ $("contributeForm").addEventListener("submit",e=>{
 $("checkPurchase").addEventListener("click",runAffordability);
 $("clearPurchase").addEventListener("click",()=>{$("purchaseName").value="";$("purchaseAmount").value="";$("purchaseExtra").value="";renderAffordability()});
 $("currency").addEventListener("change",e=>{state.currency=e.target.value;save();render();toast("Currency display updated.")});
-$("monthPicker").addEventListener("change",e=>{selectedMonth=e.target.value||currentMonth;render();toast("Showing "+monthLabel(selectedMonth)+".")});
+$("monthPicker").addEventListener("change",e=>{selectedMonth=e.target.value||currentMonth;const wf=$("workProfileForm");if(wf)wf.dataset.loaded="";render();toast("Showing "+monthLabel(selectedMonth)+".")});
 $("exportData").addEventListener("click",()=>exportFile("realbudget-backup.json",JSON.stringify(state,null,2),"application/json"));
 $("exportCsv").addEventListener("click",exportCsv);
 $("importData").addEventListener("click",()=>$("importFile").click());
@@ -845,6 +868,7 @@ document.addEventListener("click",e=>{
 });
 document.querySelectorAll("dialog").forEach(d=>d.addEventListener("click",e=>{if(e.target===d)closeDialog(d.id)}));
 if(!localStorage.getItem(STORAGE_KEY))save();
+$("shiftForm").elements.date.value=dateForSelectedMonth();
 render();
 if("serviceWorker" in navigator && location.protocol!=="file:")navigator.serviceWorker.register("./sw.js").catch(()=>{});
 })();
