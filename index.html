@@ -626,7 +626,7 @@ function exportCsv(){
  exportFile("realbudget-transactions.csv","\uFEFF"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n"),"text/csv;charset=utf-8");
 }
 document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.page)));
-document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
+document.addEventListener("click",e=>{const nav=e.target.closest("[data-go]");if(nav&&nav.dataset.go)go(nav.dataset.go)});
 $("refreshCoach").addEventListener("click",()=>{renderMoneyCoach();toast("Your money check-in is refreshed.")});
 $("setBudget").addEventListener("click",()=>{const form=$("budgetForm");form.reset();showDialog("budgetDialog")});
 $("budgetForm").addEventListener("submit",e=>{e.preventDefault();const d=new FormData(e.currentTarget),category=String(d.get("category")),amount=Number(d.get("amount"));if(!validAmount(amount,.01)){toast("Enter a budget amount greater than zero.","error");return}state.budgets=state.budgets||{};state.budgets[category]=amount;save();render();closeDialog("budgetDialog");toast(category+" budget saved.")});
