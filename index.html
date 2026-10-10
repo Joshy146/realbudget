@@ -160,7 +160,7 @@ dialog::backdrop{background:#000b;backdrop-filter:blur(4px)}
 @media(max-width:700px){
 .sidebar{inset:auto 0 0;width:100%;height:68px;padding:5px 8px calc(5px + env(safe-area-inset-bottom));border-right:0;border-top:1px solid var(--line);background:#0d110ff5;backdrop-filter:blur(15px)}
 .brand,.nav-label,.sidebar-bottom{display:none}
-.nav{height:100%;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+.nav{height:100%;grid-template-columns:repeat(8,minmax(0,1fr));gap:2px}
 .nav button{padding:5px 1px;justify-content:center;flex-direction:column;gap:2px;font-size:9px;border-radius:9px}
 .nav .ico{font-size:18px;width:auto}
 main{margin:0;padding:20px 14px 95px}
@@ -588,7 +588,18 @@ function estimatedDeductions(gross){
  return {federal,louisiana,fica,other,total:federal+louisiana+fica+other,net:Math.max(0,gross-federal-louisiana-fica-other)};
 }
 function formatHours(n){return (Math.round((Number(n)||0)*100)/100).toFixed(2)}
-function nextPaydayDate(){const p=state.workProfile||{};return p.nextPayday||shiftDate(localDate(today),7)}
+function nextPaydayDate(){
+ const p=state.workProfile||{};let key=p.nextPayday||shiftDate(localDate(today),7),guard=0;
+ while(key<localDate(today)&&guard++<240){
+  const d=new Date(key+"T12:00:00");
+  if(p.frequency==="weekly")d.setDate(d.getDate()+7);
+  else if(p.frequency==="biweekly")d.setDate(d.getDate()+14);
+  else if(p.frequency==="semimonthly"){if(d.getDate()<15)d.setDate(15);else{d.setDate(1);d.setMonth(d.getMonth()+1)}}
+  else{const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+1);d.setDate(Math.min(day,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()))}
+  key=localDate(d);
+ }
+ return key;
+}
 function renderWork(){
  const p=state.workProfile||{},form=$("workProfileForm");
  if(form&&!form.dataset.loaded){form.elements.rate.value=p.rate||"";form.elements.frequency.value=p.frequency||"biweekly";form.elements.nextPayday.value=p.nextPayday||shiftDate(localDate(today),7);form.elements.weekStart.value=String(p.weekStart??0);form.elements.federalRate.value=p.federalRate??10;form.elements.stateRate.value=p.stateRate??3;form.elements.otherDeductions.value=p.otherDeductions??0;form.dataset.loaded="true"}
@@ -596,7 +607,7 @@ function renderWork(){
  const hours=shifts.reduce((sum,x)=>sum+(calc[x.id]?.hours||0),0),gross=shifts.reduce((sum,x)=>sum+(calc[x.id]?.gross||0),0),ded=estimatedDeductions(gross);
  $("workHoursTotal").textContent=formatHours(hours);$("workGrossTotal").textContent=money(gross);$("workNetTotal").textContent=money(ded.net);
  $("shiftTable").innerHTML=shifts.length?shifts.map(x=>{const c=calc[x.id]||{hours:0,regular:0,overtime:0,gross:0};return '<tr><td>'+fmtDate(x.date)+'</td><td>'+esc(x.start)+'–'+esc(x.end)+(Number(x.breakMinutes)>0?'<div class="muted">'+esc(x.breakMinutes)+' min break</div>':'')+(x.note?'<div class="muted">'+esc(x.note)+'</div>':'')+'</td><td>'+formatHours(c.hours)+'</td><td>'+formatHours(c.regular)+'</td><td>'+formatHours(c.overtime)+'</td><td>'+money(c.gross)+'</td><td><button class="btn small" data-edit-shift="'+esc(x.id)+'">Edit</button> <button class="btn small danger" data-delete-shift="'+esc(x.id)+'">Delete</button></td></tr>'}).join(""):'<tr><td colspan="7">'+empty("No shifts logged for "+monthLabel(selectedMonth),"Add your first shift above to estimate your pay.")+'</td></tr>';
- const payday=nextPaydayDate(),payDate=new Date(payday+"T12:00:00");$("nextPayDateLabel").textContent=payDate.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});$("nextPaySummary").textContent=p.rate>0?'Selected-month estimate: '+money(ded.net)+' take-home from '+formatHours(hours)+' logged hours. Pay frequency: '+({weekly:"weekly",biweekly:"every 2 weeks",semimonthly:"twice a month",monthly:"monthly"}[p.frequency]||"not set")+'.':'Enter your hourly rate to estimate take-home pay.';
+ const payday=nextPaydayDate(),payDate=new Date(payday+"T12:00:00");if(form)form.elements.nextPayday.value=payday;$("nextPayDateLabel").textContent=payDate.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});$("nextPaySummary").textContent=p.rate>0?'Selected-month estimate: '+money(ded.net)+' take-home from '+formatHours(hours)+' logged hours. Pay frequency: '+({weekly:"weekly",biweekly:"every 2 weeks",semimonthly:"twice a month",monthly:"monthly"}[p.frequency]||"not set")+'.':'Enter your hourly rate to estimate take-home pay.';
  const due=state.bills.filter(b=>!b.paid&&b.due>=localDate(today)&&b.due<=payday).sort((a,b)=>a.due.localeCompare(b.due));
  $("paycheckBills").innerHTML=due.length?due.map(b=>'<div class="list-row"><div class="item-icon">▤</div><div class="item-main"><div class="item-title">'+esc(b.name)+'</div><div class="item-sub">Due '+fmtDate(b.due)+'</div></div><div class="item-right"><div class="item-money">'+money(b.amount)+'</div></div></div>').join(""):empty("No unpaid bills before payday","No unpaid bills are due between today and your next expected payday.");
  const end=shiftDate(localDate(today),30),calendar=state.bills.filter(b=>!b.paid&&b.due>=localDate(today)&&b.due<=end).sort((a,b)=>a.due.localeCompare(b.due));
@@ -827,7 +838,12 @@ $("importFile").addEventListener("change",async e=>{
   const cleanTransactions=d.transactions.filter(t=>t&&typeof t.description==="string"&&["income","expense"].includes(t.type)&&validAmount(t.amount,.01)&&typeof t.date==="string").map(t=>({...t,id:String(t.id||id()).slice(0,100),description:t.description.slice(0,100),category:String(t.category||"Other").slice(0,50),note:String(t.note||"").slice(0,200),date:t.date.slice(0,10)}));
   const cleanBills=d.bills.filter(b=>b&&typeof b.name==="string"&&validAmount(b.amount,.01)&&typeof b.due==="string").map(b=>({...b,id:String(b.id||id()).slice(0,100),name:b.name.slice(0,100),due:b.due.slice(0,10),paid:!!b.paid,repeat:["monthly","biweekly"].includes(b.repeat)?b.repeat:"once"}));
   const cleanGoals=d.goals.filter(g=>g&&typeof g.name==="string"&&validAmount(g.target,.01)&&validAmount(g.saved,0)).map(g=>({...g,id:String(g.id||id()).slice(0,100),name:g.name.slice(0,100),icon:String(g.icon||"✨").slice(0,12)}));
-  const cleanBudgets={};if(d.budgets&&typeof d.budgets==="object")Object.entries(d.budgets).forEach(([k,v])=>{if(typeof k==="string"&&validAmount(v,.01))cleanBudgets[k.slice(0,50)]=Number(v)});state={currency:validCurrency,transactions:cleanTransactions,bills:cleanBills,goals:cleanGoals,budgets:cleanBudgets};save();render();toast("Backup imported.");
+  const cleanBudgets={};if(d.budgets&&typeof d.budgets==="object")Object.entries(d.budgets).forEach(([k,v])=>{if(typeof k==="string"&&validAmount(v,.01))cleanBudgets[k.slice(0,50)]=Number(v)});
+  const monthlyBudgets={};if(d.monthlyBudgets&&typeof d.monthlyBudgets==="object")Object.entries(d.monthlyBudgets).forEach(([month,items])=>{if(/^\\d{4}-\\d{2}$/.test(month)&&items&&typeof items==="object"){monthlyBudgets[month]={};Object.entries(items).forEach(([k,v])=>{if(typeof k==="string"&&validAmount(v,.01))monthlyBudgets[month][k.slice(0,50)]=Number(v)})}});
+  const shifts=Array.isArray(d.shifts)?d.shifts.filter(x=>x&&typeof x.date==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(x.date)&&/^\\d{2}:\\d{2}$/.test(x.start)&&/^\\d{2}:\\d{2}$/.test(x.end)).map(x=>({id:String(x.id||id()).slice(0,100),date:x.date,start:x.start,end:x.end,breakMinutes:Math.max(0,Math.min(720,Number(x.breakMinutes)||0)),note:String(x.note||"").slice(0,160)})): [];
+  const wp=d.workProfile&&typeof d.workProfile==="object"?d.workProfile:{};
+  const workProfile={rate:validAmount(wp.rate,0)?Number(wp.rate):0,frequency:["weekly","biweekly","semimonthly","monthly"].includes(wp.frequency)?wp.frequency:"biweekly",nextPayday:typeof wp.nextPayday==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(wp.nextPayday)?wp.nextPayday:shiftDate(localDate(today),7),weekStart:Number.isInteger(Number(wp.weekStart))&&Number(wp.weekStart)>=0&&Number(wp.weekStart)<=6?Number(wp.weekStart):0,federalRate:validAmount(wp.federalRate,0)?Math.min(40,Number(wp.federalRate)):10,stateRate:validAmount(wp.stateRate,0)?Math.min(10,Number(wp.stateRate)):3,otherDeductions:validAmount(wp.otherDeductions,0)?Number(wp.otherDeductions):0};
+  state={currency:validCurrency,transactions:cleanTransactions,bills:cleanBills,goals:cleanGoals,budgets:cleanBudgets,monthlyBudgets,workProfile,shifts};save();$("workProfileForm").dataset.loaded="";render();toast("Backup imported.");
  }catch(err){toast(err.message||"Couldn't import this file.","error")}
  e.target.value="";
 });
