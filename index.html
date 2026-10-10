@@ -521,12 +521,12 @@ function renderMoneyCoach(){
  const unpaid=state.bills.filter(b=>!b.paid).sort((a,b)=>a.due.localeCompare(b.due));
  const overdue=unpaid.filter(b=>b.due<localDate(today));
  if(overdue.length) insights.push({icon:"◷",title:overdue.length+" bill"+(overdue.length===1?" is":"s are")+" past due",body:"Check whether these bills have been paid and update their status. If not, contact the provider to understand your options.",tone:"overdue",action:"View bills",page:"bills"});
- else if(unpaid.length) insights.push({icon:"▤",title:"Plan for upcoming bills",body:"You have "+unpaid.length+" unpaid bill"+(unpaid.length===1:"":"s")+" recorded. Keep the due dates in mind before treating your remaining balance as spendable.",tone:"pending",action:"View bills",page:"bills"});
+ else if(unpaid.length) insights.push({icon:"▤",title:"Plan for upcoming bills",body:"You have "+unpaid.length+" unpaid bill"+(unpaid.length===1?"":"s")+" recorded. Keep the due dates in mind before treating your remaining balance as spendable.",tone:"pending",action:"View bills",page:"bills"});
  if(!state.goals.length) insights.push({icon:"◎",title:"Give your savings a purpose",body:"Try creating a small emergency-fund goal or saving for a specific upcoming cost. Start with an amount that feels realistic.",tone:"",action:"Create a goal",page:"goals"});
  else {
    const unfinished=state.goals.filter(g=>safeNum(g.saved)<safeNum(g.target));
    if(!unfinished.length) insights.push({icon:"✦",title:"You reached every goal you've recorded",body:"Well done. Consider keeping the cushion in place or setting a new goal for your next priority.",tone:"",action:"Review goals",page:"goals"});
-   else insights.push({icon:"◎",title:"Small, consistent contributions count",body:"You have "+unfinished.length+" goal"+(unfinished.length===1:"":"s")+" still in progress. A manageable regular contribution can help you make progress without overcommitting.",tone:"",action:"Review goals",page:"goals"});
+   else insights.push({icon:"◎",title:"Small, consistent contributions count",body:"You have "+unfinished.length+" goal"+(unfinished.length===1?"":"s")+" still in progress. A manageable regular contribution can help you make progress without overcommitting.",tone:"",action:"Review goals",page:"goals"});
  }
  const ts=monthTransactions().filter(t=>t.type==="expense");
  const categories={};ts.forEach(t=>{const k=t.category||"Other";categories[k]=(categories[k]||0)+safeNum(t.amount)});
