@@ -1,0 +1,645 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b0e0d">
+<meta name="description" content="RealBudget helps you plan your paychecks, manage bills, track spending, and build a stronger financial future.">
+<title>RealBudget — Take control of your money</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg:#0b0e0d; --panel:#121715; --panel2:#181f1b;
+  --line:#28332c; --text:#f0f5f1; --muted:#8c9b91;
+  --green:#7cf0a5; --green2:#35c978; --red:#ff8585;
+  --radius:18px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;line-height:1.5}
+button,input,select{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.app{min-height:100vh}
+.sidebar{position:fixed;inset:0 auto 0 0;width:236px;border-right:1px solid var(--line);background:#0d110f;padding:25px 16px;display:flex;flex-direction:column;z-index:5}
+.brand{display:flex;align-items:center;gap:11px;padding:0 8px 32px}
+.brand-icon{height:38px;width:38px;border-radius:12px;background:var(--green);color:#092012;display:grid;place-items:center;font-size:23px;font-weight:900}
+.brand-name{font-size:18px;font-weight:800;letter-spacing:-.7px}
+.brand-name span{color:var(--green)}
+.brand small{display:block;font-size:10px;color:var(--muted);letter-spacing:1.7px;text-transform:uppercase}
+.nav-label{font-size:10px;color:#708077;letter-spacing:1.6px;text-transform:uppercase;padding:8px 10px}
+.nav{display:grid;gap:5px}
+.nav button{border:0;background:transparent;color:#a4b1a8;text-align:left;padding:11px 12px;border-radius:10px;display:flex;gap:12px;align-items:center;transition:.2s}
+.nav button:hover{background:var(--panel2);color:white}
+.nav button.active{background:#1a2b20;color:var(--green)}
+.nav .ico{width:20px;text-align:center;font-size:17px}
+.sidebar-bottom{margin-top:auto}
+.safety-note{border:1px solid var(--line);border-radius:13px;padding:13px;color:var(--muted);font-size:11px}
+.safety-note strong{display:block;color:var(--text);margin-bottom:4px;font-size:12px}
+main{margin-left:236px;max-width:1500px;padding:30px clamp(18px,4vw,48px) 60px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:30px}
+.eyebrow{color:var(--green);text-transform:uppercase;font-size:10px;letter-spacing:2px;font-weight:800}
+h1{font-size:clamp(25px,3vw,34px);line-height:1.2;letter-spacing:-1.2px;margin:5px 0 6px}
+.subtitle{color:var(--muted);font-size:13px}
+.top-actions{display:flex;align-items:center;gap:10px}
+.avatar{height:37px;width:37px;border-radius:50%;display:grid;place-items:center;background:#23372a;color:var(--green);font-weight:800;border:1px solid #35543e}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:10px 14px;font-weight:650;transition:.18s}
+.btn:hover{border-color:#53695a;transform:translateY(-1px)}
+.btn.primary{background:var(--green);color:#082012;border-color:var(--green)}
+.btn.primary:hover{background:#a0f7bd}
+.btn.small{padding:7px 10px;font-size:12px}
+.btn.danger{color:var(--red)}
+.grid{display:grid;gap:16px}
+.stats{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:18px}
+.card{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:20px;min-width:0}
+.stat-top{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:12px}
+.stat-icon{height:33px;width:33px;border-radius:10px;background:#1c2921;display:grid;place-items:center;color:var(--green);font-size:16px}
+.amount{font-size:clamp(22px,2.2vw,29px);font-weight:750;letter-spacing:-1px;margin:14px 0 5px;overflow-wrap:anywhere}
+.stat-foot{font-size:11px;color:var(--muted)}
+.positive{color:var(--green)!important}.negative{color:var(--red)!important}
+.hero{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;margin-bottom:18px}
+.balance-card{background:linear-gradient(125deg,#193624,#12251a 60%,#151d18);border-color:#294e35;position:relative;overflow:hidden;min-height:206px}
+.balance-card:after{content:"";position:absolute;width:220px;height:220px;border:1px solid #ffffff0d;border-radius:50%;right:-45px;top:-85px;box-shadow:0 0 0 25px #ffffff04,0 0 0 55px #ffffff03}
+.balance-card>*{position:relative;z-index:1}
+.balance-card .amount{font-size:clamp(32px,4vw,43px);margin:12px 0 3px}
+.balance-caption{color:#b5cbb9;font-size:12px}
+.balance-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
+.mini-metric{padding-right:18px;border-right:1px solid #ffffff24}
+.mini-metric:last-child{border:0}
+.mini-metric span{display:block;color:#b5cbb9;font-size:11px}
+.mini-metric strong{font-size:14px;display:block;margin-top:3px}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:17px}
+.section-head h2{font-size:16px;margin:0;letter-spacing:-.3px}
+.section-head p{margin:3px 0 0;color:var(--muted);font-size:11px}
+.two-col{grid-template-columns:minmax(0,1.4fr) minmax(280px,1fr);margin-bottom:18px}
+.three-col{grid-template-columns:repeat(3,minmax(0,1fr))}
+.page{display:none;animation:appear .25s ease}
+.page.active{display:block}
+@keyframes appear{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.bar-chart{height:178px;display:flex;align-items:stretch;gap:12px;padding-top:15px}
+.bar-column{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:9px}
+.bar-value{font-size:10px;color:var(--muted);height:15px;white-space:nowrap}
+.bar-track{width:100%;max-width:40px;flex:1;display:flex;align-items:flex-end;border-radius:7px;background:#1c241f;overflow:hidden}
+.bar-fill{width:100%;min-height:3px;border-radius:7px 7px 3px 3px;background:linear-gradient(0deg,#279d5b,var(--green));transition:height .3s}
+.bar-label{font-size:10px;color:var(--muted)}
+.donut-wrap{display:flex;align-items:center;gap:23px;min-height:150px}
+.donut{width:126px;height:126px;flex-shrink:0;border-radius:50%;position:relative;background:conic-gradient(var(--green) 0deg,#294735 0deg);display:grid;place-items:center}
+.donut:after{content:"";position:absolute;inset:12px;border-radius:50%;background:var(--panel)}
+.donut-center{position:relative;z-index:1;text-align:center}
+.donut-center strong{display:block;font-size:17px}
+.donut-center span{font-size:10px;color:var(--muted)}
+.legend{display:grid;gap:12px;flex:1;min-width:0}
+.legend-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px}
+.legend-name{display:flex;align-items:center;gap:8px;color:#b8c4bb;min-width:0}
+.dot{width:8px;height:8px;border-radius:3px;flex-shrink:0}
+.legend-row strong{font-size:11px;white-space:nowrap}
+.list{display:grid}
+.list-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #202922}
+.list-row:last-child{border-bottom:0}
+.item-icon{height:38px;width:38px;flex-shrink:0;border-radius:12px;background:#1d2721;display:grid;place-items:center;font-size:17px}
+.item-main{flex:1;min-width:0}
+.item-title{font-weight:650;font-size:12px;overflow-wrap:anywhere}
+.item-sub{font-size:10px;color:var(--muted);margin-top:3px}
+.item-right{text-align:right;flex-shrink:0}
+.item-money{font-size:12px;font-weight:750}
+.badge{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:4px 8px;font-size:10px;font-weight:700;background:#1b3022;color:var(--green)}
+.badge.pending{background:#342c1c;color:#f4c97b}
+.badge.overdue{background:#391f20;color:var(--red)}
+.progress{height:6px;border-radius:8px;background:#263029;overflow:hidden;margin:11px 0 7px}
+.progress span{height:100%;display:block;border-radius:8px;background:var(--green)}
+.goal-card{border:1px solid var(--line);border-radius:14px;padding:15px;background:#141a16}
+.goal-top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.goal-icon{font-size:21px}
+.goal-name{font-weight:700;margin-top:12px}
+.goal-sub{font-size:11px;color:var(--muted);margin-top:4px}
+.goal-numbers{display:flex;justify-content:space-between;gap:8px;font-size:11px}
+.muted{color:var(--muted)}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:17px}
+.toolbar input,.toolbar select{width:auto;min-width:130px}
+input,select{width:100%;border:1px solid #303d34;border-radius:10px;padding:11px 12px;background:#0d120f;color:var(--text);min-width:0}
+input::placeholder{color:#67756b}
+label{display:grid;gap:6px;color:#b6c2b9;font-size:12px}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.form-grid .full{grid-column:1/-1}
+.form-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:18px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;text-align:left;white-space:nowrap}
+th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:650}
+td,th{padding:14px 10px;border-bottom:1px solid #242e27}
+td{font-size:12px}
+tbody tr:last-child td{border-bottom:0}
+.empty{text-align:center;padding:30px 12px;color:var(--muted);font-size:12px}
+.empty strong{display:block;color:var(--text);font-size:14px;margin-bottom:5px}
+.callout{border:1px solid #30543b;background:#13271a;border-radius:14px;padding:16px;color:#c5ddcb;font-size:12px;margin-bottom:17px}
+.callout strong{color:var(--green)}
+.calculator{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.result-panel{border:1px solid #31583d;background:linear-gradient(145deg,#162c1d,#111914);border-radius:14px;padding:22px}
+.result-panel .amount{font-size:32px}
+.result-title{font-weight:750}
+.result-description{color:#b4c9b8;font-size:12px;margin-top:8px}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.setting-option{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.setting-option:last-child{border-bottom:0}
+.setting-option strong{display:block;font-size:12px}
+.setting-option span{font-size:11px;color:var(--muted)}
+.mobile-top{display:none}
+.toast{position:fixed;right:22px;bottom:22px;z-index:20;background:#203b29;border:1px solid #426b4d;color:#d9f9e1;padding:13px 18px;border-radius:12px;box-shadow:0 8px 40px #0008;max-width:calc(100vw - 35px);animation:appear .2s ease}
+.toast.error{background:#3a2020;border-color:#733c3c;color:#ffdcdc}
+.footer-note{color:#647268;font-size:10px;text-align:center;padding:22px 0}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:18px;padding:24px;width:min(490px,calc(100vw - 24px));max-height:90vh;overflow:auto}
+dialog::backdrop{background:#000b;backdrop-filter:blur(4px)}
+.dialog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.dialog-head h2{margin:0;font-size:19px}
+.close-btn{background:transparent;border:0;color:var(--muted);font-size:24px}
+@media(max-width:1050px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.two-col{grid-template-columns:1fr}.three-col{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){
+.sidebar{inset:auto 0 0;width:100%;height:68px;padding:5px 8px calc(5px + env(safe-area-inset-bottom));border-right:0;border-top:1px solid var(--line);background:#0d110ff5;backdrop-filter:blur(15px)}
+.brand,.nav-label,.sidebar-bottom{display:none}
+.nav{height:100%;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px}
+.nav button{padding:5px 1px;justify-content:center;flex-direction:column;gap:2px;font-size:9px;border-radius:9px}
+.nav .ico{font-size:18px;width:auto}
+main{margin:0;padding:20px 14px 95px}
+.mobile-top{display:flex;align-items:center;gap:8px;margin-bottom:23px}
+.mobile-top .brand-icon{height:32px;width:32px;font-size:18px}
+.topbar{margin-bottom:21px;align-items:flex-start}
+.top-actions .avatar{display:none}
+.top-actions .btn{font-size:11px;padding:9px}
+.stats{gap:10px}
+.card{padding:15px;border-radius:15px}
+.amount{font-size:23px}
+.stat-top{font-size:11px;align-items:flex-start}
+.stat-icon{height:29px;width:29px;flex-shrink:0}
+.hero{grid-template-columns:1fr;gap:10px}
+.balance-card{min-height:195px}
+.two-col,.three-col{grid-template-columns:1fr}
+.calculator,.settings-grid{grid-template-columns:1fr}
+.donut-wrap{gap:15px}
+.donut{width:112px;height:112px}
+.form-grid{grid-template-columns:1fr}
+.form-grid .full{grid-column:auto}
+.toolbar input,.toolbar select{flex:1;min-width:0;width:100%}
+.section-head{align-items:flex-start}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="brand"><div class="brand-icon">R</div><div><div class="brand-name">Real<span>Budget</span></div><small>Money, made clearer.</small></div></div>
+  <div class="nav-label">Workspace</div>
+  <nav class="nav" aria-label="Main navigation">
+    <button class="active" data-page="overview"><span class="ico">◫</span>Overview</button>
+    <button data-page="transactions"><span class="ico">⇄</span>Activity</button>
+    <button data-page="bills"><span class="ico">▤</span>My bills</button>
+    <button data-page="goals"><span class="ico">◎</span>My goals</button>
+    <button data-page="afford"><span class="ico">✳</span>Can I afford it?</button>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="nav-label">Preferences</div>
+    <nav class="nav"><button data-page="settings"><span class="ico">⚙</span>Settings & data</button></nav>
+    <div class="safety-note"><strong>🔒 Your money stays yours.</strong>Your budget is saved in this browser. No bank connection required.</div>
+  </div>
+</aside>
+
+<main>
+<div class="mobile-top"><div class="brand-icon">R</div><div class="brand-name">Real<span style="color:var(--green)">Budget</span></div></div>
+
+<header class="topbar">
+  <div><div class="eyebrow" id="todayLabel">YOUR FINANCIAL SPACE</div><h1 id="pageTitle">Your money, at a glance.</h1><div class="subtitle" id="pageSubtitle">A clearer picture of where you stand.</div></div>
+  <div class="top-actions"><button class="btn primary" id="quickAdd">＋ Add transaction</button><div class="avatar">R</div></div>
+</header>
+
+<section class="page active" id="page-overview">
+  <div class="grid stats">
+    <article class="card"><div class="stat-top">Income this month <span class="stat-icon">↗</span></div><div class="amount positive" id="statIncome">$0</div><div class="stat-foot">Money coming in</div></article>
+    <article class="card"><div class="stat-top">Spent this month <span class="stat-icon">↘</span></div><div class="amount" id="statSpent">$0</div><div class="stat-foot">Your recorded expenses</div></article>
+    <article class="card"><div class="stat-top">Unpaid bills <span class="stat-icon">▤</span></div><div class="amount" id="statBills">$0</div><div class="stat-foot" id="statBillsFoot">Remaining bill payments</div></article>
+    <article class="card"><div class="stat-top">Saved toward goals <span class="stat-icon">◎</span></div><div class="amount" id="statSaved">$0</div><div class="stat-foot">Across all savings goals</div></article>
+  </div>
+
+  <div class="hero">
+    <article class="card balance-card">
+      <div class="eyebrow">ESTIMATED AVAILABLE MONEY</div>
+      <div class="amount" id="availableBalance">$0</div>
+      <div class="balance-caption">Recorded income minus expenses and unpaid bills due this month.</div>
+      <div class="balance-row">
+        <div class="mini-metric"><span>Income</span><strong id="heroIncome">$0</strong></div>
+        <div class="mini-metric"><span>Expenses</span><strong id="heroSpent">$0</strong></div>
+        <div class="mini-metric"><span>Unpaid bills</span><strong id="heroBills">$0</strong></div>
+      </div>
+    </article>
+    <article class="card">
+      <div class="section-head"><div><h2>Your money snapshot</h2><p>Spending vs. income this month</p></div><span>◉</span></div>
+      <div class="donut-wrap">
+        <div class="donut" id="donut"><div class="donut-center"><strong id="donutPercent">0%</strong><span>of income spent</span></div></div>
+        <div class="legend" id="snapshotLegend"></div>
+      </div>
+    </article>
+  </div>
+
+  <div class="grid two-col">
+    <article class="card"><div class="section-head"><div><h2>Spending rhythm</h2><p>Income and expenses over the last six months</p></div></div><div class="bar-chart" id="trendChart"></div></article>
+    <article class="card"><div class="section-head"><div><h2>Upcoming bills</h2><p>Keep the next due dates in sight</p></div><button class="btn small" data-go="bills">View all →</button></div><div class="list" id="upcomingBills"></div></article>
+  </div>
+
+  <div class="grid two-col">
+    <article class="card"><div class="section-head"><div><h2>Recent activity</h2><p>Your latest recorded transactions</p></div><button class="btn small" data-go="transactions">View activity →</button></div><div class="list" id="recentActivity"></div></article>
+    <article class="card"><div class="section-head"><div><h2>Savings in motion</h2><p>Every little bit adds up</p></div><button class="btn small" data-go="goals">Goals →</button></div><div class="list" id="goalPreview"></div></article>
+  </div>
+  <div class="footer-note">RealBudget is a planning tool, not a bank. Estimates are based on the information you enter.</div>
+</section>
+
+<section class="page" id="page-transactions">
+  <div class="callout">Keep it simple: record the money that comes in and goes out. Your totals update automatically as you add or remove transactions.</div>
+  <div class="card">
+    <div class="section-head"><div><h2>Transaction activity</h2><p>Every dollar has a story.</p></div><button class="btn primary" id="addTransaction2">＋ Add transaction</button></div>
+    <div class="toolbar"><input id="transactionSearch" placeholder="Search descriptions..." aria-label="Search transactions"><select id="transactionFilter" aria-label="Filter transactions"><option value="all">All transactions</option><option value="income">Income only</option><option value="expense">Expenses only</option></select></div>
+    <div class="table-wrap"><table><thead><tr><th>Description</th><th>Category</th><th>Date</th><th>Type</th><th>Amount</th><th></th></tr></thead><tbody id="transactionTable"></tbody></table></div>
+  </div>
+</section>
+
+<section class="page" id="page-bills">
+  <div class="callout"><strong>Plan before payday.</strong> Add recurring or one-time bills to see what's coming up. Mark bills paid when you've paid them. A bill isn't automatically deducted from your recorded balance.</div>
+  <div class="grid stats">
+    <article class="card"><div class="stat-top">Unpaid total <span class="stat-icon">▤</span></div><div class="amount" id="billUnpaidTotal">$0</div><div class="stat-foot">Bills not yet marked paid</div></article>
+    <article class="card"><div class="stat-top">Due in 7 days <span class="stat-icon">◷</span></div><div class="amount" id="billWeekTotal">$0</div><div class="stat-foot">Based on the due dates entered</div></article>
+  </div>
+  <div class="card"><div class="section-head"><div><h2>Your bills</h2><p>Know what's due and when.</p></div><button class="btn primary" id="addBill">＋ Add a bill</button></div><div class="table-wrap"><table><thead><tr><th>Bill</th><th>Due date</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="billTable"></tbody></table></div></div>
+</section>
+
+<section class="page" id="page-goals">
+  <div class="callout">Big goals become less intimidating when you can see your progress. Create a target, track what you've saved, and add contributions as you go.</div>
+  <div class="grid stats">
+    <article class="card"><div class="stat-top">Total saved <span class="stat-icon">◎</span></div><div class="amount positive" id="goalTotalSaved">$0</div><div class="stat-foot">Across your goals</div></article>
+    <article class="card"><div class="stat-top">Still to go <span class="stat-icon">↗</span></div><div class="amount" id="goalStillToGo">$0</div><div class="stat-foot">To reach all targets</div></article>
+  </div>
+  <div class="section-head"><div><h2>Your savings goals</h2><p>Progress, one step at a time.</p></div><button class="btn primary" id="addGoal">＋ New goal</button></div>
+  <div class="grid three-col" id="goalsGrid"></div>
+</section>
+
+<section class="page" id="page-afford">
+  <div class="callout">A quick reality check before you buy. This calculator uses the income, expenses, and unpaid bills you've entered for the current month. It doesn't know about cash or bank balances you haven't recorded.</div>
+  <div class="grid two-col">
+    <article class="card"><div class="section-head"><div><h2>Think before you spend</h2><p>Try a purchase and see the estimated impact.</p></div></div>
+      <div class="form-grid">
+        <label class="full">What are you thinking of buying?<input id="purchaseName" placeholder="e.g. New tires, headphones"></label>
+        <label class="full">Purchase price ($)<input id="purchaseAmount" type="number" min="0" step="0.01" placeholder="0.00"></label>
+        <label class="full">Additional costs ($)<input id="purchaseExtra" type="number" min="0" step="0.01" placeholder="Tax, fees, shipping"></label>
+      </div>
+      <div class="form-actions"><button class="btn" id="clearPurchase">Reset</button><button class="btn primary" id="checkPurchase">Check affordability →</button></div>
+    </article>
+    <article class="result-panel"><div class="eyebrow">YOUR MONEY CHECK</div><div class="result-title" id="affordTitle" style="margin-top:12px;font-size:23px">Let's run the numbers.</div><div class="amount" id="affordRemaining">$0</div><div class="result-description" id="affordDescription">Enter a purchase to estimate what would remain after your recorded expenses and unpaid bills.</div><div class="progress" style="margin-top:22px"><span id="affordProgress" style="width:0%"></span></div><div class="stat-foot" id="affordFoot">This is an estimate, not a guarantee of affordability.</div></article>
+  </div>
+  <div class="grid two-col" style="margin-top:18px">
+    <article class="card"><h2 style="font-size:15px">How the estimate works</h2><div class="list"><div class="list-row"><div class="item-icon">↗</div><div class="item-main"><div class="item-title">Start with recorded income</div><div class="item-sub">Income transactions dated this month.</div></div></div><div class="list-row"><div class="item-icon">↘</div><div class="item-main"><div class="item-title">Subtract recorded spending</div><div class="item-sub">Expense transactions dated this month.</div></div></div><div class="list-row"><div class="item-icon">▤</div><div class="item-main"><div class="item-title">Reserve unpaid bills</div><div class="item-sub">Bills with due dates in the current month.</div></div></div><div class="list-row"><div class="item-icon">＋</div><div class="item-main"><div class="item-title">Subtract the purchase</div><div class="item-sub">Including any extra costs you enter.</div></div></div></div></article>
+    <article class="card"><h2 style="font-size:15px">Before you commit</h2><div class="list"><div class="list-row"><div class="item-icon">✓</div><div class="item-main"><div class="item-title">Protect essentials first</div><div class="item-sub">Keep enough for food, housing, utilities, and transport.</div></div></div><div class="list-row"><div class="item-icon">◷</div><div class="item-main"><div class="item-title">Think about your next payday</div><div class="item-sub">A purchase can be affordable today but make next week harder.</div></div></div><div class="list-row"><div class="item-icon">◎</div><div class="item-main"><div class="item-title">Leave a cushion</div><div class="item-sub">Unexpected costs happen. Don't plan every dollar away.</div></div></div></div></article>
+  </div>
+</section>
+
+<section class="page" id="page-settings">
+  <div class="callout">Your privacy matters. This version stores data in this browser using local storage. It doesn't connect to your bank or send your financial information to a server.</div>
+  <div class="grid settings-grid">
+    <article class="card"><div class="section-head"><div><h2>Your data</h2><p>Take your information with you.</p></div></div>
+      <div class="setting-option"><div><strong>Export backup</strong><span>Save your budget as a JSON file.</span></div><button class="btn small" id="exportData">Export</button></div>
+      <div class="setting-option"><div><strong>Export transactions</strong><span>Download your activity as a CSV file.</span></div><button class="btn small" id="exportCsv">Export CSV</button></div>
+      <div class="setting-option"><div><strong>Restore backup</strong><span>Load a previous RealBudget JSON backup.</span></div><button class="btn small" id="importData">Import</button><input id="importFile" type="file" accept=".json,application/json" hidden></div>
+      <div class="setting-option"><div><strong>Clear demo data</strong><span>Remove sample entries and keep your own.</span></div><button class="btn small" id="clearDemo">Clear samples</button></div>
+    </article>
+    <article class="card"><div class="section-head"><div><h2>App preferences</h2><p>Make RealBudget feel like yours.</p></div></div>
+      <div class="setting-option"><div><strong>Currency</strong><span>Amounts shown throughout the app.</span></div><select id="currency" style="width:100px"><option value="USD">USD $</option><option value="CAD">CAD $</option><option value="GBP">GBP £</option><option value="EUR">EUR €</option><option value="AUD">AUD $</option></select></div>
+      <div class="setting-option"><div><strong>Sample data</strong><span>Use realistic examples to explore the app.</span></div><span class="badge" id="sampleStatus">Included</span></div>
+      <div class="setting-option"><div><strong>Storage</strong><span>Saved locally in this browser.</span></div><span class="badge">Local</span></div>
+    </article>
+  </div>
+  <article class="card" style="margin-top:16px"><h2 style="font-size:15px">About RealBudget</h2><p class="muted" style="font-size:12px;line-height:1.8">RealBudget is a personal budgeting and planning tool. It does not provide bank balances, financial advice, credit decisions, or guaranteed affordability assessments. Verify your real account balances and bill amounts before making financial decisions. Your data can be lost if you clear this browser's site data, so export backups regularly.</p></article>
+</section>
+</main>
+</div>
+
+<dialog id="transactionDialog">
+  <div class="dialog-head"><h2 id="transactionDialogTitle">Add transaction</h2><button class="close-btn" data-close="transactionDialog" aria-label="Close">×</button></div>
+  <form id="transactionForm">
+    <div class="form-grid">
+      <label class="full">Description<input name="description" required maxlength="100" placeholder="e.g. Weekly paycheck"></label>
+      <label>Type<select name="type"><option value="expense">Expense</option><option value="income">Income</option></select></label>
+      <label>Amount ($)<input name="amount" type="number" min="0.01" max="999999999" step="0.01" required placeholder="0.00"></label>
+      <label>Category<select name="category" id="transactionCategory"><option>Housing</option><option>Food</option><option>Transportation</option><option>Utilities</option><option>Shopping</option><option>Health</option><option>Entertainment</option><option>Personal</option><option>Debt</option><option>Savings</option><option>Salary</option><option>Freelance</option><option>Other</option></select></label>
+      <label>Date<input name="date" type="date" required></label>
+      <label class="full">Note (optional)<input name="note" maxlength="200" placeholder="Add a little detail"></label>
+    </div>
+    <div class="form-actions"><button type="button" class="btn" data-close="transactionDialog">Cancel</button><button class="btn primary" type="submit">Save transaction</button></div>
+  </form>
+</dialog>
+
+<dialog id="billDialog">
+  <div class="dialog-head"><h2>Add a bill</h2><button class="close-btn" data-close="billDialog" aria-label="Close">×</button></div>
+  <form id="billForm">
+    <div class="form-grid">
+      <label class="full">Bill name<input name="name" required maxlength="100" placeholder="e.g. Electricity"></label>
+      <label>Amount ($)<input name="amount" type="number" min="0.01" max="999999999" step="0.01" required placeholder="0.00"></label>
+      <label>Due date<input name="due" type="date" required></label>
+      <label class="full">Repeat<select name="repeat"><option value="once">One time</option><option value="monthly">Monthly</option></select></label>
+    </div>
+    <div class="form-actions"><button type="button" class="btn" data-close="billDialog">Cancel</button><button class="btn primary" type="submit">Save bill</button></div>
+  </form>
+</dialog>
+
+<dialog id="goalDialog">
+  <div class="dialog-head"><h2 id="goalDialogTitle">Create a savings goal</h2><button class="close-btn" data-close="goalDialog" aria-label="Close">×</button></div>
+  <form id="goalForm">
+    <div class="form-grid">
+      <label class="full">Goal name<input name="name" required maxlength="100" placeholder="e.g. Emergency fund"></label>
+      <label>Target amount ($)<input name="target" type="number" min="0.01" max="999999999" step="0.01" required placeholder="5000"></label>
+      <label>Already saved ($)<input name="saved" type="number" min="0" max="999999999" step="0.01" value="0" required></label>
+      <label class="full">Choose an icon<select name="icon"><option value="🛟">🛟 Emergency fund</option><option value="🚗">🚗 Car</option><option value="🏠">🏠 Home</option><option value="✈️">✈️ Travel</option><option value="🎓">🎓 Education</option><option value="💍">💍 Special occasion</option><option value="✨">✨ Other</option></select></label>
+    </div>
+    <div class="form-actions"><button type="button" class="btn" data-close="goalDialog">Cancel</button><button class="btn primary" type="submit">Save goal</button></div>
+  </form>
+</dialog>
+
+<dialog id="contributeDialog">
+  <div class="dialog-head"><h2>Add to your goal</h2><button class="close-btn" data-close="contributeDialog" aria-label="Close">×</button></div>
+  <form id="contributeForm">
+    <p id="contributeGoalName" class="muted"></p>
+    <label>Contribution amount ($)<input name="amount" type="number" min="0.01" max="999999999" step="0.01" required placeholder="25.00"></label>
+    <div class="form-actions"><button type="button" class="btn" data-close="contributeDialog">Cancel</button><button class="btn primary" type="submit">Add contribution</button></div>
+  </form>
+</dialog>
+
+<div id="toastRegion" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const today = new Date();
+const localDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const shiftDate = (date, days) => {const d=new Date(date+"T12:00:00");d.setDate(d.getDate()+days);return localDate(d)};
+const monthKey = date => date.slice(0,7);
+const currentMonth = localDate(today).slice(0,7);
+const money = value => new Intl.NumberFormat("en-US",{style:"currency",currency:state.currency||"USD",maximumFractionDigits:2}).format(Number(value)||0);
+const esc = value => String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const id = () => "rb_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8);
+const safeNum = v => Number.isFinite(Number(v))?Number(v):0;
+
+function sampleData(){
+  const date=(day,offset=0)=>{const d=new Date(today.getFullYear(),today.getMonth()+offset,day,12);return localDate(d)};
+  return {
+    currency:"USD",transactions:[
+      {id:id(),description:"Monthly paycheck",type:"income",amount:3250,date:date(1),category:"Salary",note:"Example income",demo:true},
+      {id:id(),description:"Apartment rent",type:"expense",amount:1100,date:date(2),category:"Housing",demo:true},
+      {id:id(),description:"Grocery run",type:"expense",amount:86.42,date:date(4),category:"Food",demo:true},
+      {id:id(),description:"Gas station",type:"expense",amount:48.50,date:date(6),category:"Transportation",demo:true},
+      {id:id(),description:"Internet bill",type:"expense",amount:65,date:date(8),category:"Utilities",demo:true},
+      {id:id(),description:"Weekend shift",type:"income",amount:180,date:date(10),category:"Salary",demo:true},
+      {id:id(),description:"Coffee & lunch",type:"expense",amount:19.75,date:date(11),category:"Food",demo:true},
+      {id:id(),description:"Household supplies",type:"expense",amount:34.20,date:date(12),category:"Shopping",demo:true},
+      {id:id(),description:"Streaming service",type:"expense",amount:15.99,date:date(14),category:"Entertainment",demo:true},
+      {id:id(),description:"Phone bill",type:"expense",amount:72,date:date(16),category:"Utilities",demo:true},
+      {id:id(),description:"Side project",type:"income",amount:95,date:date(18),category:"Freelance",demo:true},
+      {id:id(),description:"Pharmacy",type:"expense",amount:22.80,date:date(19),category:"Health",demo:true}
+    ],
+    bills:[
+      {id:id(),name:"Electricity",amount:115,due:date(Math.min(25,new Date(today.getFullYear(),today.getMonth()+1,0).getDate())),paid:false,repeat:"monthly",demo:true},
+      {id:id(),name:"Internet",amount:65,due:date(Math.min(27,new Date(today.getFullYear(),today.getMonth()+1,0).getDate())),paid:false,repeat:"monthly",demo:true},
+      {id:id(),name:"Phone plan",amount:72,due:date(Math.min(28,new Date(today.getFullYear(),today.getMonth()+1,0).getDate())),paid:false,repeat:"monthly",demo:true},
+      {id:id(),name:"Car insurance",amount:145,due:date(5,1),paid:false,repeat:"monthly",demo:true}
+    ],
+    goals:[
+      {id:id(),name:"Emergency fund",icon:"🛟",target:3000,saved:850,demo:true},
+      {id:id(),name:"Car repairs",icon:"🚗",target:1200,saved:340,demo:true},
+      {id:id(),name:"Weekend getaway",icon:"✈️",target:800,saved:175,demo:true}
+    ]
+  };
+}
+const STORAGE_KEY="realbudget_v1";
+function loadState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const parsed=JSON.parse(raw);
+      if(parsed&&Array.isArray(parsed.transactions)&&Array.isArray(parsed.bills)&&Array.isArray(parsed.goals))return {...parsed,currency:parsed.currency||"USD"};
+    }
+  }catch(e){console.warn("Could not read saved budget",e)}
+  return sampleData();
+}
+let state=loadState();
+let activePage="overview";
+let contributeGoalId=null;
+let toastTimer;
+function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}catch(e){toast("Couldn't save data. Export a backup and check browser storage.","error")}}
+function toast(message,type="success"){const region=$("toastRegion");region.innerHTML=`<div class="toast ${type==="error"?"error":""}" role="status">${esc(message)}</div>`;clearTimeout(toastTimer);toastTimer=setTimeout(()=>region.replaceChildren(),3200)}
+function validAmount(v,min=0){const n=Number(v);return Number.isFinite(n)&&n>=min&&n<=999999999}
+function monthTransactions(month=currentMonth){return state.transactions.filter(t=>t.date&&monthKey(t.date)===month)}
+function totals(month=currentMonth){
+ const ts=monthTransactions(month);
+ return {income:ts.filter(t=>t.type==="income").reduce((s,t)=>s+safeNum(t.amount),0),spent:ts.filter(t=>t.type==="expense").reduce((s,t)=>s+safeNum(t.amount),0)};
+}
+function monthBills(month=currentMonth){return state.bills.filter(b=>!b.paid&&b.due&&monthKey(b.due)===month)}
+function unpaidTotal(){return state.bills.filter(b=>!b.paid).reduce((s,b)=>s+safeNum(b.amount),0)}
+function monthlyBillsTotal(){return monthBills().reduce((s,b)=>s+safeNum(b.amount),0)}
+function totalSaved(){return state.goals.reduce((s,g)=>s+safeNum(g.saved),0)}
+function totalTargets(){return state.goals.reduce((s,g)=>s+safeNum(g.target),0)}
+function fmtDate(date){if(!date)return "No date";const d=new Date(date+"T12:00:00");return Number.isNaN(d.getTime())?date:d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+function categoryIcon(cat){return ({Housing:"⌂",Food:"♧",Transportation:"🚗",Utilities:"ϟ",Shopping:"◇",Health:"✚",Entertainment:"♫",Personal:"☺",Debt:"↘",Savings:"◎",Salary:"↗",Freelance:"✳",Other:"•"})[cat]||"•"}
+function empty(message,detail=""){return `<div class="empty"><strong>${esc(message)}</strong>${esc(detail)}</div>`}
+function go(page){
+ activePage=page;
+ document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id==="page-"+page));
+ document.querySelectorAll("[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
+ const info={
+  overview:["Your money, at a glance.","A clearer picture of where you stand."],
+  transactions:["Every dollar, accounted for.","Track what's coming in and going out."],
+  bills:["Bills without the surprises.","Know what needs paying and when."],
+  goals:["Make room for what matters.","Small steps. Real progress."],
+  afford:["Before you buy, check in.","Make a decision with your numbers in view."],
+  settings:["Your data, your rules.","Manage your budget and your privacy."]
+ };
+ $("pageTitle").textContent=info[page][0];$("pageSubtitle").textContent=info[page][1];
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+function showDialog(name){const d=$(name);if(d.showModal)d.showModal();else d.setAttribute("open","")}
+function closeDialog(name){const d=$(name);if(d.close)d.close();else d.removeAttribute("open")}
+function setDefaultDate(form){const el=form.querySelector('[name="date"]');if(el)el.value=localDate(today)}
+function render(){
+ $("todayLabel").textContent=today.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase();
+ renderOverview();renderTransactions();renderBills();renderGoals();renderAffordability();$("currency").value=state.currency||"USD";
+ $("sampleStatus").textContent=[...state.transactions,...state.bills,...state.goals].some(x=>x.demo)?"Included":"Cleared";
+}
+function renderOverview(){
+ const t=totals(),bills=monthlyBillsTotal(),saved=totalSaved(),available=t.income-t.spent-bills;
+ $("statIncome").textContent=money(t.income);$("statSpent").textContent=money(t.spent);$("statBills").textContent=money(bills);$("statSaved").textContent=money(saved);
+ $("statBillsFoot").textContent=`${monthBills().length} unpaid bill${monthBills().length===1?"":"s"} due this month`;
+ $("availableBalance").textContent=money(available);$("availableBalance").className="amount "+(available<0?"negative":"");
+ $("heroIncome").textContent=money(t.income);$("heroSpent").textContent=money(t.spent);$("heroBills").textContent=money(bills);
+ const pct=t.income>0?Math.min(100,t.spent/t.income*100):0;
+ $("donutPercent").textContent=Math.round(pct)+"%";
+ $("donut").style.background=t.income>0?`conic-gradient(var(--green) ${pct*3.6}deg,#294735 ${pct*3.6}deg)`:"conic-gradient(#294735 0deg 360deg)";
+ $("snapshotLegend").innerHTML=`<div class="legend-row"><span class="legend-name"><i class="dot" style="background:var(--green)"></i>Spent</span><strong>${money(t.spent)}</strong></div><div class="legend-row"><span class="legend-name"><i class="dot" style="background:#294735"></i>Income left*</span><strong>${money(Math.max(0,t.income-t.spent))}</strong></div><div class="legend-row"><span class="legend-name"><i class="dot" style="background:var(--red)"></i>Over income</span><strong>${money(Math.max(0,t.spent-t.income))}</strong></div>`;
+ const months=[];
+ for(let i=5;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth()-i,1,12);months.push({key:localDate(d).slice(0,7),label:d.toLocaleDateString("en-US",{month:"short"})})}
+ const values=months.map(m=>({ ...m,...totals(m.key)}));const max=Math.max(1,...values.flatMap(v=>[v.income,v.spent]));
+ $("trendChart").innerHTML=values.map(v=>`<div class="bar-column"><div class="bar-value">${money(v.spent)}</div><div class="bar-track" title="Income ${money(v.income)}; expenses ${money(v.spent)}"><div class="bar-fill" style="height:${Math.max(v.spent>0?2:0,v.spent/max*100)}%"></div></div><div class="bar-label">${v.label}</div></div>`).join("");
+ const billsList=state.bills.filter(b=>!b.paid).sort((a,b)=>a.due.localeCompare(b.due)).slice(0,4);
+ $("upcomingBills").innerHTML=billsList.length?billsList.map(b=>`<div class="list-row"><div class="item-icon">▤</div><div class="item-main"><div class="item-title">${esc(b.name)}</div><div class="item-sub">Due ${fmtDate(b.due)}</div></div><div class="item-right"><div class="item-money">${money(b.amount)}</div><button class="btn small" data-paid="${esc(b.id)}">Mark paid</button></div></div>`).join(""):empty("All caught up!","No unpaid bills recorded.");
+ const recent=[...state.transactions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+ $("recentActivity").innerHTML=recent.length?recent.map(transactionRow).join(""):empty("No activity yet","Add a transaction to get started.");
+ const goals=[...state.goals].sort((a,b)=>(safeNum(b.saved)/Math.max(1,safeNum(b.target)))-(safeNum(a.saved)/Math.max(1,safeNum(a.target)))).slice(0,3);
+ $("goalPreview").innerHTML=goals.length?goals.map(g=>`<div class="list-row"><div class="item-icon">${esc(g.icon||"◎")}</div><div class="item-main"><div class="item-title">${esc(g.name)}</div><div class="progress"><span style="width:${Math.min(100,safeNum(g.saved)/Math.max(1,safeNum(g.target))*100)}%"></span></div><div class="item-sub">${money(g.saved)} of ${money(g.target)}</div></div><strong class="item-money">${Math.round(safeNum(g.saved)/Math.max(1,safeNum(g.target))*100)}%</strong></div>`).join(""):empty("Your goals start here","Create a savings goal.");
+}
+function transactionRow(t){
+ const income=t.type==="income";
+ return `<div class="list-row"><div class="item-icon">${categoryIcon(t.category)}</div><div class="item-main"><div class="item-title">${esc(t.description)}</div><div class="item-sub">${esc(t.category)} · ${fmtDate(t.date)}</div></div><div class="item-right"><div class="item-money ${income?"positive":""}">${income?"+":"−"}${money(t.amount)}</div></div></div>`;
+}
+function renderTransactions(){
+ const q=$("transactionSearch").value.trim().toLowerCase(),filter=$("transactionFilter").value;
+ const list=[...state.transactions].filter(t=>(filter==="all"||t.type===filter)&&[t.description,t.category,t.note].some(v=>String(v||"").toLowerCase().includes(q))).sort((a,b)=>b.date.localeCompare(a.date));
+ $("transactionTable").innerHTML=list.length?list.map(t=>`<tr><td><strong>${esc(t.description)}</strong>${t.note?`<div class="muted">${esc(t.note)}</div>`:""}</td><td>${esc(t.category)}</td><td>${fmtDate(t.date)}</td><td><span class="badge ${t.type==="income"?"":"pending"}">${t.type==="income"?"Income":"Expense"}</span></td><td class="${t.type==="income"?"positive":""}">${t.type==="income"?"+":"−"}${money(t.amount)}</td><td><button class="btn small danger" data-delete-transaction="${esc(t.id)}" aria-label="Delete ${esc(t.description)}">Delete</button></td></tr>`).join(""):`<tr><td colspan="6">${empty("No matching transactions","Try another search or add a transaction.")}</td></tr>`;
+}
+function renderBills(){
+ const unpaid=state.bills.filter(b=>!b.paid),week=shiftDate(localDate(today),7);
+ $("billUnpaidTotal").textContent=money(unpaid.reduce((s,b)=>s+safeNum(b.amount),0));
+ $("billWeekTotal").textContent=money(unpaid.filter(b=>b.due>=localDate(today)&&b.due<=week).reduce((s,b)=>s+safeNum(b.amount),0));
+ const sorted=[...state.bills].sort((a,b)=>a.due.localeCompare(b.due));
+ $("billTable").innerHTML=sorted.length?sorted.map(b=>{const overdue=!b.paid&&b.due<localDate(today);return `<tr><td><strong>${esc(b.name)}</strong><div class="muted">${b.repeat==="monthly"?"Monthly":"One-time"}</div></td><td>${fmtDate(b.due)}</td><td>${money(b.amount)}</td><td><span class="badge ${b.paid?"":overdue?"overdue":"pending"}">${b.paid?"Paid":overdue?"Overdue":"Upcoming"}</span></td><td>${b.paid?`<button class="btn small" data-unpaid="${esc(b.id)}">Undo</button>`:`<button class="btn small" data-paid="${esc(b.id)}">Mark paid</button>`} <button class="btn small danger" data-delete-bill="${esc(b.id)}">Delete</button></td></tr>`}).join(""):`<tr><td colspan="5">${empty("No bills yet","Add your first bill to plan ahead.")}</td></tr>`;
+}
+function renderGoals(){
+ $("goalTotalSaved").textContent=money(totalSaved());$("goalStillToGo").textContent=money(state.goals.reduce((s,g)=>s+Math.max(0,safeNum(g.target)-safeNum(g.saved)),0));
+ $("goalsGrid").innerHTML=state.goals.length?state.goals.map(g=>{const pct=Math.min(100,safeNum(g.saved)/Math.max(1,safeNum(g.target))*100);return `<article class="goal-card"><div class="goal-top"><span class="goal-icon">${esc(g.icon||"◎")}</span><span class="badge">${pct>=100?"Completed":Math.round(pct)+"%"}</span></div><div class="goal-name">${esc(g.name)}</div><div class="goal-sub">${pct>=100?"You reached your target!":money(Math.max(0,g.target-g.saved))+" left to reach your goal"}</div><div class="progress"><span style="width:${pct}%"></span></div><div class="goal-numbers"><strong>${money(g.saved)}</strong><span class="muted">of ${money(g.target)}</span></div><div class="form-actions" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn small primary" data-contribute="${esc(g.id)}" ${pct>=100?"disabled":""}>＋ Add money</button><button class="btn small" data-edit-goal="${esc(g.id)}">Edit</button><button class="btn small danger" data-delete-goal="${esc(g.id)}">Delete</button></div></article>`}).join(""):empty("Your next goal starts here","Create a savings goal to track your progress.");
+}
+function renderAffordability(){
+ const t=totals(),reserved=monthlyBillsTotal(),base=t.income-t.spent-reserved;
+ if(!$("purchaseAmount").value&&!$("purchaseExtra").value){$("affordRemaining").textContent=money(base);$("affordTitle").textContent="Let's run the numbers.";$("affordDescription").textContent="Enter a purchase to estimate what would remain after your recorded expenses and unpaid bills.";$("affordProgress").style.width="0%";$("affordFoot").textContent="Estimated money after current recorded expenses and unpaid bills."}
+}
+function runAffordability(){
+ const raw=$("purchaseAmount").value,extraRaw=$("purchaseExtra").value;
+ if(raw===""||!validAmount(raw,0.01)||!validAmount(extraRaw||0,0)){toast("Enter a valid purchase price and additional costs.","error");return}
+ const total=Number(raw)+Number(extraRaw||0),t=totals(),base=t.income-t.spent-monthlyBillsTotal(),after=base-total;
+ $("affordRemaining").textContent=money(after);$("affordRemaining").className="amount "+(after<0?"negative":"positive");
+ $("affordTitle").textContent=after<0?"This could stretch your budget.":after<100?"Very little room left.":after<500?"Possible, but plan carefully.":"Looks manageable on paper.";
+ $("affordDescription").textContent=`${money(total)} total cost for ${$("purchaseName").value.trim()||"this purchase"}. Your estimated available amount before the purchase is ${money(base)}.`;
+ const pct=base>0?Math.min(100,Math.max(0,after/base*100)):0;$("affordProgress").style.width=pct+"%";$("affordFoot").textContent=after<0?"This purchase would put your estimated budget below zero.":`You would have ${money(after)} remaining in this month's estimate. Remember unrecorded expenses and future needs.`;
+}
+function openTransaction(){
+ const form=$("transactionForm");form.reset();setDefaultDate(form);$("transactionDialogTitle").textContent="Add transaction";showDialog("transactionDialog");
+}
+function openBill(){const form=$("billForm");form.reset();form.elements.due.value=localDate(today);showDialog("billDialog")}
+let editingGoal=null;
+function openGoal(goal=null){
+ editingGoal=goal?.id||null;const form=$("goalForm");form.reset();
+ $("goalDialogTitle").textContent=goal?"Edit savings goal":"Create a savings goal";
+ if(goal){form.elements.name.value=goal.name;form.elements.target.value=goal.target;form.elements.saved.value=goal.saved;form.elements.icon.value=goal.icon||"✨"}
+ showDialog("goalDialog");
+}
+function markPaid(billId,paid){
+ const bill=state.bills.find(b=>b.id===billId);if(!bill)return;
+ bill.paid=paid;
+ if(paid&&bill.repeat==="monthly"){
+   const next=new Date(bill.due+"T12:00:00");next.setMonth(next.getMonth()+1);
+   const originalDay=Number(bill.due.slice(8,10));
+   if(next.getDate()!==originalDay)next.setDate(0);
+   state.bills.push({...bill,id:id(),due:localDate(next),paid:false});
+ }
+ save();render();toast(paid?"Bill marked paid.":"Bill marked unpaid.");
+}
+function exportFile(filename,content,type){
+ const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");
+ a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function csvCell(v){return '"'+String(v??"").replace(/"/g,'""')+'"'}
+function exportCsv(){
+ const rows=[["Description","Type","Amount","Category","Date","Note"],...state.transactions.map(t=>[t.description,t.type,t.amount,t.category,t.date,t.note||""])];
+ exportFile("realbudget-transactions.csv","\uFEFF"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n"),"text/csv;charset=utf-8");
+}
+document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.page)));
+document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
+$("quickAdd").addEventListener("click",openTransaction);$("addTransaction2").addEventListener("click",openTransaction);
+$("addBill").addEventListener("click",openBill);$("addGoal").addEventListener("click",()=>openGoal());
+document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeDialog(b.dataset.close)));
+$("transactionSearch").addEventListener("input",renderTransactions);$("transactionFilter").addEventListener("change",renderTransactions);
+$("transactionForm").addEventListener("submit",e=>{
+ e.preventDefault();const f=e.currentTarget,d=new FormData(f),amount=Number(d.get("amount"));
+ if(!validAmount(amount,.01)){toast("Enter an amount greater than zero.","error");return}
+ state.transactions.push({id:id(),description:String(d.get("description")).trim(),type:d.get("type"),amount,date:d.get("date"),category:d.get("category"),note:String(d.get("note")||"").trim()});
+ save();render();closeDialog("transactionDialog");toast("Transaction saved.");
+});
+$("billForm").addEventListener("submit",e=>{
+ e.preventDefault();const d=new FormData(e.currentTarget),amount=Number(d.get("amount"));
+ if(!validAmount(amount,.01)){toast("Enter a valid bill amount.","error");return}
+ state.bills.push({id:id(),name:String(d.get("name")).trim(),amount,due:d.get("due"),paid:false,repeat:d.get("repeat")});
+ save();render();closeDialog("billDialog");toast("Bill added.");
+});
+$("goalForm").addEventListener("submit",e=>{
+ e.preventDefault();const d=new FormData(e.currentTarget),target=Number(d.get("target")),saved=Number(d.get("saved"));
+ if(!validAmount(target,.01)||!validAmount(saved,0)){toast("Enter valid goal amounts.","error");return}
+ if(editingGoal){const g=state.goals.find(g=>g.id===editingGoal);if(g)Object.assign(g,{name:String(d.get("name")).trim(),target,saved,icon:d.get("icon")})}
+ else state.goals.push({id:id(),name:String(d.get("name")).trim(),target,saved,icon:d.get("icon")});
+ save();render();closeDialog("goalDialog");toast(editingGoal?"Goal updated.":"Savings goal created.");editingGoal=null;
+});
+$("contributeForm").addEventListener("submit",e=>{
+ e.preventDefault();const amount=Number(new FormData(e.currentTarget).get("amount")),g=state.goals.find(g=>g.id===contributeGoalId);
+ if(!g||!validAmount(amount,.01)){toast("Enter a valid contribution amount.","error");return}
+ g.saved=Math.min(999999999,safeNum(g.saved)+amount);save();render();closeDialog("contributeDialog");toast("Contribution added to your goal.");
+});
+$("checkPurchase").addEventListener("click",runAffordability);
+$("clearPurchase").addEventListener("click",()=>{$("purchaseName").value="";$("purchaseAmount").value="";$("purchaseExtra").value="";renderAffordability()});
+$("currency").addEventListener("change",e=>{state.currency=e.target.value;save();render();toast("Currency display updated.")});
+$("exportData").addEventListener("click",()=>exportFile("realbudget-backup.json",JSON.stringify(state,null,2),"application/json"));
+$("exportCsv").addEventListener("click",exportCsv);
+$("importData").addEventListener("click",()=>$("importFile").click());
+$("importFile").addEventListener("change",async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{
+  const d=JSON.parse(await file.text());
+  if(!d||!Array.isArray(d.transactions)||!Array.isArray(d.bills)||!Array.isArray(d.goals))throw new Error("This file is not a valid RealBudget backup.");
+  if(!confirm("Import this backup and replace the budget currently saved in this browser? Export your current budget first if you want to keep it.")){e.target.value="";return}
+  const validCurrency=["USD","CAD","GBP","EUR","AUD"].includes(d.currency)?d.currency:"USD";
+  const cleanTransactions=d.transactions.filter(t=>t&&typeof t.description==="string"&&["income","expense"].includes(t.type)&&validAmount(t.amount,.01)&&typeof t.date==="string").map(t=>({...t,id:String(t.id||id()).slice(0,100),description:t.description.slice(0,100),category:String(t.category||"Other").slice(0,50),note:String(t.note||"").slice(0,200),date:t.date.slice(0,10)}));
+  const cleanBills=d.bills.filter(b=>b&&typeof b.name==="string"&&validAmount(b.amount,.01)&&typeof b.due==="string").map(b=>({...b,id:String(b.id||id()).slice(0,100),name:b.name.slice(0,100),due:b.due.slice(0,10),paid:!!b.paid,repeat:b.repeat==="monthly"?"monthly":"once"}));
+  const cleanGoals=d.goals.filter(g=>g&&typeof g.name==="string"&&validAmount(g.target,.01)&&validAmount(g.saved,0)).map(g=>({...g,id:String(g.id||id()).slice(0,100),name:g.name.slice(0,100),icon:String(g.icon||"✨").slice(0,12)}));
+  state={currency:validCurrency,transactions:cleanTransactions,bills:cleanBills,goals:cleanGoals};save();render();toast("Backup imported.");
+ }catch(err){toast(err.message||"Couldn't import this file.","error")}
+ e.target.value="";
+});
+$("clearDemo").addEventListener("click",()=>{
+ const count=[...state.transactions,...state.bills,...state.goals].filter(x=>x.demo).length;
+ if(!count){toast("No sample entries remain.");return}
+ if(!confirm("Remove all sample transactions, bills, and goals? Your own entries will be kept."))return;
+ state.transactions=state.transactions.filter(x=>!x.demo);state.bills=state.bills.filter(x=>!x.demo);state.goals=state.goals.filter(x=>!x.demo);
+ save();render();toast("Sample data removed.");
+});
+document.addEventListener("click",e=>{
+ const b=e.target.closest("button");if(!b)return;
+ if(b.dataset.paid){markPaid(b.dataset.paid,true);return}
+ if(b.dataset.unpaid){markPaid(b.dataset.unpaid,false);return}
+ if(b.dataset.deleteTransaction){
+  const t=state.transactions.find(t=>t.id===b.dataset.deleteTransaction);if(!t)return;
+  if(!confirm(`Delete "${t.description}"?`))return;
+  state.transactions=state.transactions.filter(t=>t.id!==b.dataset.deleteTransaction);save();render();toast("Transaction deleted.");return;
+ }
+ if(b.dataset.deleteBill){
+  const bill=state.bills.find(x=>x.id===b.dataset.deleteBill);if(!bill)return;
+  if(!confirm(`Delete "${bill.name}"?`))return;
+  state.bills=state.bills.filter(x=>x.id!==b.dataset.deleteBill);save();render();toast("Bill deleted.");return;
+ }
+ if(b.dataset.contribute){
+  contributeGoalId=b.dataset.contribute;const g=state.goals.find(g=>g.id===contributeGoalId);if(!g)return;
+  $("contributeGoalName").textContent=`Adding money to ${g.name}. Current progress: ${money(g.saved)} of ${money(g.target)}.`;
+  $("contributeForm").reset();showDialog("contributeDialog");return;
+ }
+ if(b.dataset.editGoal){const g=state.goals.find(g=>g.id===b.dataset.editGoal);if(g)openGoal(g);return}
+ if(b.dataset.deleteGoal){
+  const g=state.goals.find(g=>g.id===b.dataset.deleteGoal);if(!g)return;
+  if(!confirm(`Delete savings goal "${g.name}"?`))return;
+  state.goals=state.goals.filter(g=>g.id!==b.dataset.deleteGoal);save();render();toast("Goal deleted.");
+ }
+});
+document.querySelectorAll("dialog").forEach(d=>d.addEventListener("click",e=>{if(e.target===d)closeDialog(d.id)}));
+if(!localStorage.getItem(STORAGE_KEY))save();
+render();
+})();
+</script>
+</body>
+</html>
