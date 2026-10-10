@@ -312,7 +312,7 @@ main{margin:0;padding:20px 14px 95px}
       <div id="coachInsights" class="list"></div>
     </article>
     <article class="card">
-      <div class="section-head"><div><h2>Where spending goes</h2><p>Expense categories for this month.</p></div></div>
+      <div class="section-head"><div><h2>Category budgets</h2><p>Set limits and track monthly spending.</p></div><button class="btn small" id="setBudget">＋ Set budget</button></div>
       <div id="coachCategories" class="list"></div>
     </article>
   </div>
@@ -393,6 +393,18 @@ main{margin:0;padding:20px 14px 95px}
   </form>
 </dialog>
 
+<dialog id="budgetDialog">
+  <div class="dialog-head"><h2>Set a monthly category budget</h2><button class="close-btn" data-close="budgetDialog" aria-label="Close">×</button></div>
+  <form id="budgetForm">
+    <div class="form-grid">
+      <label class="full">Expense category<select name="category" required><option value="Housing">Housing</option><option value="Food">Food & groceries</option><option value="Transportation">Transportation</option><option value="Utilities">Utilities</option><option value="Shopping">Shopping</option><option value="Health">Health</option><option value="Entertainment">Entertainment</option><option value="Personal">Personal</option><option value="Debt">Debt payments</option><option value="Other">Other</option></select></label>
+      <label class="full">Monthly spending limit ($)<input name="amount" type="number" min="0.01" max="999999999" step="0.01" required placeholder="e.g. 250"></label>
+    </div>
+    <p class="muted" style="font-size:11px">Budgets are planning targets, not bank limits. Your spending totals come from transactions you've recorded for the current month.</p>
+    <div class="form-actions"><button type="button" class="btn" data-close="budgetDialog">Cancel</button><button class="btn primary" type="submit">Save budget</button></div>
+  </form>
+</dialog>
+
 <div id="toastRegion" aria-live="polite"></div>
 
 <script>
@@ -412,7 +424,7 @@ const safeNum = v => Number.isFinite(Number(v))?Number(v):0;
 function sampleData(){
   const date=(day,offset=0)=>{const d=new Date(today.getFullYear(),today.getMonth()+offset,day,12);return localDate(d)};
   return {
-    currency:"USD",transactions:[
+    currency:"USD",budgets:{Food:350,Transportation:180,Entertainment:100},transactions:[
       {id:id(),description:"Monthly paycheck",type:"income",amount:3250,date:date(1),category:"Salary",note:"Example income",demo:true},
       {id:id(),description:"Apartment rent",type:"expense",amount:1100,date:date(2),category:"Housing",demo:true},
       {id:id(),description:"Grocery run",type:"expense",amount:86.42,date:date(4),category:"Food",demo:true},
@@ -445,7 +457,7 @@ function loadState(){
     const raw=localStorage.getItem(STORAGE_KEY);
     if(raw){
       const parsed=JSON.parse(raw);
-      if(parsed&&Array.isArray(parsed.transactions)&&Array.isArray(parsed.bills)&&Array.isArray(parsed.goals))return {...parsed,currency:parsed.currency||"USD"};
+      if(parsed&&Array.isArray(parsed.transactions)&&Array.isArray(parsed.bills)&&Array.isArray(parsed.goals))return {...parsed,currency:parsed.currency||"USD",budgets:parsed.budgets&&typeof parsed.budgets==="object"?parsed.budgets:{}};
     }
   }catch(e){console.warn("Could not read saved budget",e)}
   return sampleData();
@@ -522,7 +534,11 @@ function renderMoneyCoach(){
  if(top) insights.push({icon:"◇",title:top[0]+" is your largest recorded category",body:"You've recorded "+money(top[1])+" in "+top[0].toLowerCase()+" this month. Check that this matches your expectations before deciding where to make changes.",tone:"",action:"See transactions",page:"transactions"});
  $("coachInsights").innerHTML=insights.map(i=>'<div class="list-row"><div class="item-icon">'+esc(i.icon)+'</div><div class="item-main"><div class="item-title">'+esc(i.title)+'</div><div class="item-sub" style="white-space:normal;line-height:1.6;margin-top:5px">'+esc(i.body)+'</div><div style="margin-top:9px"><button class="btn small" data-go="'+esc(i.page)+'">'+esc(i.action)+' →</button></div></div></div>').join("");
  const entries=Object.entries(categories).sort((a,b)=>b[1]-a[1]);
- $("coachCategories").innerHTML=entries.length?entries.map(([name,amount])=>'<div class="list-row"><div class="item-icon">'+esc(categoryIcon(name))+'</div><div class="item-main"><div class="item-title">'+esc(name)+'</div><div class="progress"><span style="width:'+Math.min(100,amount/Math.max(1,...entries.map(x=>x[1]))*100)+'%"></span></div></div><strong class="item-money">'+money(amount)+'</strong></div>').join(""):empty("No spending recorded yet","Add expense transactions to see your category breakdown.");
+ const budgetNames=[...new Set([...Object.keys(state.budgets||{}),...entries.map(x=>x[0])])].sort();
+ $("coachCategories").innerHTML=budgetNames.length?budgetNames.map(name=>{
+   const amount=categories[name]||0,limit=safeNum((state.budgets||{})[name]),pct=limit>0?amount/limit*100:0,over=limit>0&&amount>limit;
+   return '<div class="list-row"><div class="item-icon">'+esc(categoryIcon(name))+'</div><div class="item-main"><div class="item-title">'+esc(name)+'</div><div class="item-sub">'+(limit>0?money(amount)+' of '+money(limit)+' · '+(over?money(amount-limit)+' over':money(limit-amount)+' left'):(amount>0?money(amount)+' spent · no limit set':'No spending recorded'))+'</div>'+(limit>0?'<div class="progress"><span style="width:'+Math.min(100,pct)+'%;background:'+(over?'var(--red)':'var(--green)')+'"></span></div>':'')+'</div><div class="item-right">'+(limit>0?'<span class="badge '+(over?'overdue':'')+'">'+Math.round(pct)+'%</span>':'<span class="badge pending">No limit</span>')+'<div style="margin-top:5px"><button class="btn small" data-edit-budget="'+esc(name)+'">Edit</button></div></div></div>';
+ }).join(""):empty("No budgets or spending yet","Set a category budget to start planning your month.");
 }
 function renderOverview(){
  const t=totals(),bills=monthlyBillsTotal(),saved=totalSaved(),available=t.income-t.spent-bills;
@@ -612,6 +628,9 @@ function exportCsv(){
 document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.page)));
 document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
 $("refreshCoach").addEventListener("click",()=>{renderMoneyCoach();toast("Your money check-in is refreshed.")});
+$("setBudget").addEventListener("click",()=>{const form=$("budgetForm");form.reset();showDialog("budgetDialog")});
+$("budgetForm").addEventListener("submit",e=>{e.preventDefault();const d=new FormData(e.currentTarget),category=String(d.get("category")),amount=Number(d.get("amount"));if(!validAmount(amount,.01)){toast("Enter a budget amount greater than zero.","error");return}state.budgets=state.budgets||{};state.budgets[category]=amount;save();render();closeDialog("budgetDialog");toast(category+" budget saved.")});
+document.addEventListener("click",e=>{const b=e.target.closest("button[data-edit-budget]");if(!b)return;const category=b.dataset.editBudget,form=$("budgetForm");form.elements.category.value=category;form.elements.amount.value=state.budgets?.[category]||"";showDialog("budgetDialog")});
 $("quickAdd").addEventListener("click",openTransaction);$("addTransaction2").addEventListener("click",openTransaction);
 $("addBill").addEventListener("click",openBill);$("addGoal").addEventListener("click",()=>openGoal());
 document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeDialog(b.dataset.close)));
@@ -656,7 +675,7 @@ $("importFile").addEventListener("change",async e=>{
   const cleanTransactions=d.transactions.filter(t=>t&&typeof t.description==="string"&&["income","expense"].includes(t.type)&&validAmount(t.amount,.01)&&typeof t.date==="string").map(t=>({...t,id:String(t.id||id()).slice(0,100),description:t.description.slice(0,100),category:String(t.category||"Other").slice(0,50),note:String(t.note||"").slice(0,200),date:t.date.slice(0,10)}));
   const cleanBills=d.bills.filter(b=>b&&typeof b.name==="string"&&validAmount(b.amount,.01)&&typeof b.due==="string").map(b=>({...b,id:String(b.id||id()).slice(0,100),name:b.name.slice(0,100),due:b.due.slice(0,10),paid:!!b.paid,repeat:b.repeat==="monthly"?"monthly":"once"}));
   const cleanGoals=d.goals.filter(g=>g&&typeof g.name==="string"&&validAmount(g.target,.01)&&validAmount(g.saved,0)).map(g=>({...g,id:String(g.id||id()).slice(0,100),name:g.name.slice(0,100),icon:String(g.icon||"✨").slice(0,12)}));
-  state={currency:validCurrency,transactions:cleanTransactions,bills:cleanBills,goals:cleanGoals};save();render();toast("Backup imported.");
+  const cleanBudgets={};if(d.budgets&&typeof d.budgets==="object")Object.entries(d.budgets).forEach(([k,v])=>{if(typeof k==="string"&&validAmount(v,.01))cleanBudgets[k.slice(0,50)]=Number(v)});state={currency:validCurrency,transactions:cleanTransactions,bills:cleanBills,goals:cleanGoals,budgets:cleanBudgets};save();render();toast("Backup imported.");
  }catch(err){toast(err.message||"Couldn't import this file.","error")}
  e.target.value="";
 });
