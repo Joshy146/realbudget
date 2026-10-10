@@ -749,11 +749,11 @@ function ensureRecurringBills(){
  const horizon=shiftDate(localDate(today),90),series=[...state.bills].filter(b=>b&&b.due&&["monthly","biweekly"].includes(b.repeat)).sort((a,b)=>a.due.localeCompare(b.due));
  let changed=false;
  for(const bill of series){
-  let cursor=bill.due,guard=0;
-  while(cursor<=horizon&&guard++<120){
-   const nextDue=nextBillDate({...bill,due:cursor});
+  let cursor=bill.due,guard=0,anchorDay=Number(bill.anchorDay)||Number(bill.due.slice(8,10));
+  while(cursor<=horizon&&guard++<600){
+   const nextDue=nextBillDate({...bill,anchorDay,due:cursor});
    const exists=state.bills.some(b=>b.name.toLowerCase()===bill.name.toLowerCase()&&Number(b.amount)===Number(bill.amount)&&b.repeat===bill.repeat&&b.due===nextDue);
-   if(!exists){state.bills.push({...bill,id:id(),due:nextDue,anchorDay:Number(bill.anchorDay)||Number(bill.due.slice(8,10)),paid:false});changed=true}
+   if(!exists){state.bills.push({...bill,id:id(),due:nextDue,anchorDay,paid:false});changed=true}
    cursor=nextDue;
   }
  }
@@ -840,7 +840,7 @@ $("contributeForm").addEventListener("submit",e=>{
 $("checkPurchase").addEventListener("click",runAffordability);
 $("clearPurchase").addEventListener("click",()=>{$("purchaseName").value="";$("purchaseAmount").value="";$("purchaseExtra").value="";renderAffordability()});
 $("currency").addEventListener("change",e=>{state.currency=e.target.value;save();render();toast("Currency display updated.")});
-$("monthPicker").addEventListener("change",e=>{selectedMonth=e.target.value||currentMonth;const wf=$("workProfileForm");if(wf)wf.dataset.loaded="";render();toast("Showing "+monthLabel(selectedMonth)+".")});
+$("monthPicker").addEventListener("change",e=>{selectedMonth=e.target.value||currentMonth;const wf=$("workProfileForm");if(wf)wf.dataset.loaded="";const sf=$("shiftForm");if(sf&&!editingShift)sf.elements.date.value=dateForSelectedMonth();render();toast("Showing "+monthLabel(selectedMonth)+".")});
 $("exportData").addEventListener("click",()=>exportFile("realbudget-backup.json",JSON.stringify(state,null,2),"application/json"));
 $("exportCsv").addEventListener("click",exportCsv);
 $("importData").addEventListener("click",()=>$("importFile").click());
