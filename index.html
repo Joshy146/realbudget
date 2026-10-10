@@ -297,7 +297,7 @@ main{margin:0;padding:20px 14px 95px}
     <article class="card"><div class="section-head"><div><h2>Paycheck outlook</h2><p>Estimated next pay date and bills that may need coverage.</p></div></div>
       <div class="balance-card" style="min-height:0;padding:20px;margin-bottom:14px"><div class="eyebrow">NEXT EXPECTED PAYDAY</div><div class="amount" id="nextPayDateLabel">Set a payday</div><div class="balance-caption" id="nextPaySummary">Save your pay settings to start planning.</div></div>
       <h3 style="margin-bottom:10px">Bills due before payday</h3><div id="paycheckBills"></div>
-      <div class="form-actions"><button class="btn" type="button" id="addPaycheckIncome">＋ Record paycheck as income</button></div>
+      <div class="form-actions"><button class="btn" type="button" id="addPaycheckIncome">＋ Record next paycheck estimate as income</button></div>
     </article>
   </div>
   <div class="card"><div class="section-head"><div><h2>Log a shift</h2><p>Enter start/end times and unpaid break minutes. Overtime is calculated by workweek, not by averaging two weeks together.</p></div></div>
@@ -583,9 +583,29 @@ function shiftCalculations(){
  Object.entries(groups).forEach(([week,items])=>{let used=0;items.forEach(x=>{const hours=shiftHours(x),regular=Math.max(0,Math.min(hours,40-used));used+=hours;const overtime=Math.max(0,hours-regular);out[x.id]={hours,regular,overtime,gross:regular*rate+overtime*rate*1.5,week}})});
  return out;
 }
-function estimatedDeductions(gross){
- const p=state.workProfile||{},federal=gross*Math.max(0,Number(p.federalRate)||0)/100,louisiana=gross*Math.max(0,Number(p.stateRate)||0)/100,fica=gross*.0765,other=Math.max(0,Number(p.otherDeductions)||0);
+function estimatedDeductions(gross,checks=1){
+ const p=state.workProfile||{},federal=gross*Math.max(0,Number(p.federalRate)||0)/100,louisiana=gross*Math.max(0,Number(p.stateRate)||0)/100,fica=gross*.0765,other=Math.max(0,Number(p.otherDeductions)||0)*Math.max(0,checks);
  return {federal,louisiana,fica,other,total:federal+louisiana+fica+other,net:Math.max(0,gross-federal-louisiana-fica-other)};
+}
+function checksPerMonth(){
+ const f=state.workProfile?.frequency;return f==="weekly"?52/12:f==="biweekly"?26/12:f==="semimonthly"?2:1;
+}
+function payPeriodRange(payday){
+ const end=shiftDate(payday,-1),frequency=state.workProfile?.frequency;
+ if(frequency==="weekly")return {start:shiftDate(payday,-7),end};
+ if(frequency==="biweekly")return {start:shiftDate(payday,-14),end};
+ if(frequency==="semimonthly"){
+  const d=new Date(payday+"T12:00:00");
+  if(d.getDate()===15)return {start:localDate(new Date(d.getFullYear(),d.getMonth(),1,12)),end};
+  if(d.getDate()===1)return {start:localDate(new Date(d.getFullYear(),d.getMonth()-1,15,12)),end};
+  return {start:shiftDate(payday,-15),end};
+ }
+ const d=new Date(payday+"T12:00:00");const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()-1);d.setDate(Math.min(day,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));
+ return {start:localDate(d),end};
+}
+function nextPaycheckEstimate(){
+ const payday=nextPaydayDate(),range=payPeriodRange(payday),calc=shiftCalculations(),entries=state.shifts.filter(x=>x.date>=range.start&&x.date<=range.end),gross=entries.reduce((sum,x)=>sum+(calc[x.id]?.gross||0),0);
+ return {payday,range,entries,gross,deductions:estimatedDeductions(gross)};
 }
 function formatHours(n){return (Math.round((Number(n)||0)*100)/100).toFixed(2)}
 function nextPaydayDate(){
@@ -604,10 +624,10 @@ function renderWork(){
  const p=state.workProfile||{},form=$("workProfileForm");
  if(form&&!form.dataset.loaded){form.elements.rate.value=p.rate||"";form.elements.frequency.value=p.frequency||"biweekly";form.elements.nextPayday.value=p.nextPayday||shiftDate(localDate(today),7);form.elements.weekStart.value=String(p.weekStart??0);form.elements.federalRate.value=p.federalRate??10;form.elements.stateRate.value=p.stateRate??3;form.elements.otherDeductions.value=p.otherDeductions??0;form.dataset.loaded="true"}
  const calc=shiftCalculations(),shifts=state.shifts.filter(x=>monthKey(x.date)===selectedMonth).sort((a,b)=>b.date.localeCompare(a.date)||(b.start||"").localeCompare(a.start||""));
- const hours=shifts.reduce((sum,x)=>sum+(calc[x.id]?.hours||0),0),gross=shifts.reduce((sum,x)=>sum+(calc[x.id]?.gross||0),0),ded=estimatedDeductions(gross);
+ const hours=shifts.reduce((sum,x)=>sum+(calc[x.id]?.hours||0),0),gross=shifts.reduce((sum,x)=>sum+(calc[x.id]?.gross||0),0),ded=estimatedDeductions(gross,checksPerMonth());
  $("workHoursTotal").textContent=formatHours(hours);$("workGrossTotal").textContent=money(gross);$("workNetTotal").textContent=money(ded.net);
  $("shiftTable").innerHTML=shifts.length?shifts.map(x=>{const c=calc[x.id]||{hours:0,regular:0,overtime:0,gross:0};return '<tr><td>'+fmtDate(x.date)+'</td><td>'+esc(x.start)+'–'+esc(x.end)+(Number(x.breakMinutes)>0?'<div class="muted">'+esc(x.breakMinutes)+' min break</div>':'')+(x.note?'<div class="muted">'+esc(x.note)+'</div>':'')+'</td><td>'+formatHours(c.hours)+'</td><td>'+formatHours(c.regular)+'</td><td>'+formatHours(c.overtime)+'</td><td>'+money(c.gross)+'</td><td><button class="btn small" data-edit-shift="'+esc(x.id)+'">Edit</button> <button class="btn small danger" data-delete-shift="'+esc(x.id)+'">Delete</button></td></tr>'}).join(""):'<tr><td colspan="7">'+empty("No shifts logged for "+monthLabel(selectedMonth),"Add your first shift above to estimate your pay.")+'</td></tr>';
- const payday=nextPaydayDate(),payDate=new Date(payday+"T12:00:00");if(form)form.elements.nextPayday.value=payday;$("nextPayDateLabel").textContent=payDate.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});$("nextPaySummary").textContent=p.rate>0?'Selected-month estimate: '+money(ded.net)+' take-home from '+formatHours(hours)+' logged hours. Pay frequency: '+({weekly:"weekly",biweekly:"every 2 weeks",semimonthly:"twice a month",monthly:"monthly"}[p.frequency]||"not set")+'.':'Enter your hourly rate to estimate take-home pay.';
+ const check=nextPaycheckEstimate(),payday=check.payday,payDate=new Date(payday+"T12:00:00");if(form)form.elements.nextPayday.value=payday;$("nextPayDateLabel").textContent=payDate.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});$("nextPaySummary").textContent=p.rate>0?'Pay period '+fmtDate(check.range.start)+' – '+fmtDate(check.range.end)+': '+money(check.gross)+' gross / '+money(check.deductions.net)+' estimated take-home from '+check.entries.length+' logged shift'+(check.entries.length===1?"":"s")+'.':'Enter your hourly rate to estimate take-home pay.';
  const due=state.bills.filter(b=>!b.paid&&b.due>=localDate(today)&&b.due<=payday).sort((a,b)=>a.due.localeCompare(b.due));
  $("paycheckBills").innerHTML=due.length?due.map(b=>'<div class="list-row"><div class="item-icon">▤</div><div class="item-main"><div class="item-title">'+esc(b.name)+'</div><div class="item-sub">Due '+fmtDate(b.due)+'</div></div><div class="item-right"><div class="item-money">'+money(b.amount)+'</div></div></div>').join(""):empty("No unpaid bills before payday","No unpaid bills are due between today and your next expected payday.");
  const end=shiftDate(localDate(today),30),calendar=state.bills.filter(b=>!b.paid&&b.due>=localDate(today)&&b.due<=end).sort((a,b)=>a.due.localeCompare(b.due));
@@ -801,10 +821,10 @@ document.addEventListener("click",e=>{
  if(del){const x=state.shifts.find(y=>y.id===del.dataset.deleteShift);if(!x)return;state.shifts=state.shifts.filter(y=>y.id!==x.id);save();render();toast("Shift removed.");}
 });
 $("addPaycheckIncome").addEventListener("click",()=>{
- const calc=shiftCalculations(),shifts=state.shifts.filter(x=>monthKey(x.date)===selectedMonth),gross=shifts.reduce((sum,x)=>sum+(calc[x.id]?.gross||0),0),net=estimatedDeductions(gross).net,date=nextPaydayDate();
- if(net<=0){toast("Log shifts and set your hourly rate before recording estimated pay.","error");return}
+ const check=nextPaycheckEstimate(),date=check.payday,net=check.deductions.net;
+ if(net<=0){toast("Log shifts for the upcoming pay period and set your hourly rate first.","error");return}
  if(state.transactions.some(t=>t.type==="income"&&t.date===date&&t.note==="Estimated pay from Work & Pay planner")){toast("An estimated paycheck is already recorded for that date.","error");return}
- state.transactions.push({id:id(),description:"Estimated paycheck",type:"income",amount:Math.round(net*100)/100,date,category:"Salary",note:"Estimated pay from Work & Pay planner"});save();render();toast("Estimated paycheck recorded as income.");
+ state.transactions.push({id:id(),description:"Estimated paycheck",type:"income",amount:Math.round(net*100)/100,date,category:"Salary",note:"Estimated pay from Work & Pay planner"});save();render();toast("Estimated next paycheck recorded as income.");
 });
 $("addBill").addEventListener("click",openBill);$("addGoal").addEventListener("click",()=>openGoal());
 document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeDialog(b.dataset.close)));
