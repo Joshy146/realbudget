@@ -46,7 +46,7 @@ main{margin-left:236px;max-width:1500px;padding:30px clamp(18px,4vw,48px) 60px}
 .eyebrow{color:var(--green);text-transform:uppercase;font-size:10px;letter-spacing:2px;font-weight:800}
 h1{font-size:clamp(25px,3vw,34px);line-height:1.2;letter-spacing:-1.2px;margin:5px 0 6px}
 .subtitle{color:var(--muted);font-size:13px}
-.top-actions{display:flex;align-items:center;gap:10px}
+.top-actions{display:flex;align-items:center;gap:10px}.month-picker-label{min-width:150px;gap:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}.month-picker-label select{padding:8px 10px;font-size:12px;text-transform:none;letter-spacing:0}
 .avatar{height:37px;width:37px;border-radius:50%;display:grid;place-items:center;background:#23372a;color:var(--green);font-weight:800;border:1px solid #35543e}
 .btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:10px 14px;font-weight:650;transition:.18s}
 .btn:hover{border-color:#53695a;transform:translateY(-1px)}
@@ -212,7 +212,7 @@ main{margin:0;padding:20px 14px 95px}
 
 <header class="topbar">
   <div><div class="eyebrow" id="todayLabel">YOUR FINANCIAL SPACE</div><h1 id="pageTitle">Your money, at a glance.</h1><div class="subtitle" id="pageSubtitle">A clearer picture of where you stand.</div></div>
-  <div class="top-actions"><button class="btn primary" id="quickAdd">＋ Add transaction</button><div class="avatar">R</div></div>
+  <div class="top-actions"><label class="month-picker-label">Viewing month<select id="monthPicker" aria-label="Choose budget month"></select></label><button class="btn primary" id="quickAdd">＋ Add transaction</button><div class="avatar">R</div></div>
 </header>
 
 <section class="page active" id="page-overview">
@@ -369,7 +369,7 @@ main{margin:0;padding:20px 14px 95px}
       <label class="full">Bill name<input name="name" required maxlength="100" placeholder="e.g. Electricity"></label>
       <label>Amount ($)<input name="amount" type="number" min="0.01" max="999999999" step="0.01" required placeholder="0.00"></label>
       <label>Due date<input name="due" type="date" required></label>
-      <label class="full">Repeat<select name="repeat"><option value="once">One time</option><option value="monthly">Monthly</option></select></label>
+      <label class="full">Repeat<select name="repeat"><option value="once">One time</option><option value="biweekly">Every 2 weeks (biweekly)</option><option value="monthly">Monthly</option></select><span class="muted">After you mark a recurring bill paid, RealBudget schedules its next occurrence.</span></label>
     </div>
     <div class="form-actions"><button type="button" class="btn" data-close="billDialog">Cancel</button><button class="btn primary" type="submit">Save bill</button></div>
   </form>
@@ -420,6 +420,8 @@ const localDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"
 const shiftDate = (date, days) => {const d=new Date(date+"T12:00:00");d.setDate(d.getDate()+days);return localDate(d)};
 const monthKey = date => date.slice(0,7);
 const currentMonth = localDate(today).slice(0,7);
+let selectedMonth = currentMonth;
+const monthLabel = key => {const d=new Date(key+"-01T12:00:00");return Number.isNaN(d.getTime())?key:d.toLocaleDateString("en-US",{month:"long",year:"numeric"})};
 const money = value => new Intl.NumberFormat("en-US",{style:"currency",currency:state.currency||"USD",maximumFractionDigits:2}).format(Number(value)||0);
 const esc = value => String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const id = () => "rb_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8);
@@ -473,12 +475,12 @@ let toastTimer;
 function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}catch(e){toast("Couldn't save data. Export a backup and check browser storage.","error")}}
 function toast(message,type="success"){const region=$("toastRegion");region.innerHTML=`<div class="toast ${type==="error"?"error":""}" role="status">${esc(message)}</div>`;clearTimeout(toastTimer);toastTimer=setTimeout(()=>region.replaceChildren(),3200)}
 function validAmount(v,min=0){const n=Number(v);return Number.isFinite(n)&&n>=min&&n<=999999999}
-function monthTransactions(month=currentMonth){return state.transactions.filter(t=>t.date&&monthKey(t.date)===month)}
-function totals(month=currentMonth){
+function monthTransactions(month=selectedMonth){return state.transactions.filter(t=>t.date&&monthKey(t.date)===month)}
+function totals(month=selectedMonth){
  const ts=monthTransactions(month);
  return {income:ts.filter(t=>t.type==="income").reduce((s,t)=>s+safeNum(t.amount),0),spent:ts.filter(t=>t.type==="expense").reduce((s,t)=>s+safeNum(t.amount),0)};
 }
-function monthBills(month=currentMonth){return state.bills.filter(b=>!b.paid&&b.due&&monthKey(b.due)===month)}
+function monthBills(month=selectedMonth){return state.bills.filter(b=>!b.paid&&b.due&&monthKey(b.due)===month)}
 function unpaidTotal(){return state.bills.filter(b=>!b.paid).reduce((s,b)=>s+safeNum(b.amount),0)}
 function monthlyBillsTotal(){return monthBills().reduce((s,b)=>s+safeNum(b.amount),0)}
 function totalSaved(){return state.goals.reduce((s,g)=>s+safeNum(g.saved),0)}
@@ -504,9 +506,23 @@ function go(page){
 }
 function showDialog(name){const d=$(name);if(d.showModal)d.showModal();else d.setAttribute("open","")}
 function closeDialog(name){const d=$(name);if(d.close)d.close();else d.removeAttribute("open")}
-function setDefaultDate(form){const el=form.querySelector('[name="date"]');if(el)el.value=localDate(today)}
+function dateForSelectedMonth(){
+ const [year,month]=selectedMonth.split("-").map(Number),day=today.getDate();
+ return localDate(new Date(year,month-1,Math.min(day,new Date(year,month,0).getDate()),12));
+}
+function setDefaultDate(form){const el=form.querySelector('[name="date"]');if(el)el.value=dateForSelectedMonth()}
+function renderMonthPicker(){
+ const picker=$("monthPicker");if(!picker)return;
+ const dates=[...state.transactions.map(t=>t.date),...state.bills.map(b=>b.due)].filter(Boolean).map(monthKey).sort();
+ const earliest=dates[0]||localDate(new Date(today.getFullYear(),today.getMonth()-24,1,12)).slice(0,7);
+ const start=new Date(earliest+"-01T12:00:00"),end=new Date(today.getFullYear(),today.getMonth()+12,1,12);
+ const options=[];for(let d=new Date(start);d<=end;d.setMonth(d.getMonth()+1)){const key=localDate(d).slice(0,7);options.push('<option value="'+key+'">'+esc(monthLabel(key))+(key===currentMonth?' · Current':'')+'</option>')}
+ picker.innerHTML=options.reverse().join("");picker.value=selectedMonth;
+ if(!picker.value){selectedMonth=currentMonth;picker.value=currentMonth}
+}
 function render(){
- $("todayLabel").textContent=today.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase();
+ renderMonthPicker();
+ $("todayLabel").textContent=("BUDGET PERIOD · "+monthLabel(selectedMonth)).toUpperCase();
  renderOverview();renderTransactions();renderBills();renderGoals();renderAffordability();renderMoneyCoach();$("currency").value=state.currency||"USD";
  $("sampleStatus").textContent=[...state.transactions,...state.bills,...state.goals].some(x=>x.demo)?"Included":"Cleared";
 }
@@ -520,7 +536,7 @@ function renderMoneyCoach(){
  const insights=[];
  if(t.income===0) insights.push({icon:"↗",title:"Start with your income",body:"Add the paychecks or other income you've received this month. Even an estimate gives your budget a useful starting point.",tone:"pending",action:"Add income",page:"transactions"});
  else if(available<0) insights.push({icon:"!",title:"Your recorded plan is over budget",body:"Recorded expenses and unpaid bills are higher than this month's recorded income. Check for missing income, review nonessential spending, and prioritize essentials first.",tone:"overdue",action:"Review bills",page:"bills"});
- else if(t.spent+t.income*0.0>t.income*0.8) insights.push({icon:"↘",title:"Most of your income is already allocated",body:"Your recorded spending is using a large share of this month's income. Before adding new purchases, make sure essentials and upcoming bills are covered.",tone:"pending",action:"Check affordability",page:"afford"});
+ else if(t.spent>t.income*0.8) insights.push({icon:"↘",title:"Most of your income is already allocated",body:"Your recorded spending is using a large share of "+monthLabel(selectedMonth)+" income. Before adding new purchases, make sure essentials and upcoming bills are covered.",tone:"pending",action:"Check affordability",page:"afford"});
  else insights.push({icon:"✓",title:"Keep your plan up to date",body:"Your current recorded numbers leave some room, but remember to include everyday purchases and upcoming bills so this estimate stays realistic.",tone:"",action:"Review activity",page:"transactions"});
  const unpaid=state.bills.filter(b=>!b.paid).sort((a,b)=>a.due.localeCompare(b.due));
  const overdue=unpaid.filter(b=>b.due<localDate(today));
@@ -558,9 +574,9 @@ function renderOverview(){
  for(let i=5;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth()-i,1,12);months.push({key:localDate(d).slice(0,7),label:d.toLocaleDateString("en-US",{month:"short"})})}
  const values=months.map(m=>({ ...m,...totals(m.key)}));const max=Math.max(1,...values.flatMap(v=>[v.income,v.spent]));
  $("trendChart").innerHTML=values.map(v=>`<div class="bar-column"><div class="bar-value">${money(v.spent)}</div><div class="bar-track" title="Income ${money(v.income)}; expenses ${money(v.spent)}"><div class="bar-fill" style="height:${Math.max(v.spent>0?2:0,v.spent/max*100)}%"></div></div><div class="bar-label">${v.label}</div></div>`).join("");
- const billsList=state.bills.filter(b=>!b.paid).sort((a,b)=>a.due.localeCompare(b.due)).slice(0,4);
- $("upcomingBills").innerHTML=billsList.length?billsList.map(b=>`<div class="list-row"><div class="item-icon">▤</div><div class="item-main"><div class="item-title">${esc(b.name)}</div><div class="item-sub">Due ${fmtDate(b.due)}</div></div><div class="item-right"><div class="item-money">${money(b.amount)}</div><button class="btn small" data-paid="${esc(b.id)}">Mark paid</button></div></div>`).join(""):empty("All caught up!","No unpaid bills recorded.");
- const recent=[...state.transactions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+ const billsList=state.bills.filter(b=>!b.paid&&monthKey(b.due)===selectedMonth).sort((a,b)=>a.due.localeCompare(b.due)).slice(0,4);
+ $("upcomingBills").innerHTML=billsList.length?billsList.map(b=>`<div class="list-row"><div class="item-icon">▤</div><div class="item-main"><div class="item-title">${esc(b.name)}</div><div class="item-sub">Due ${fmtDate(b.due)}</div></div><div class="item-right"><div class="item-money">${money(b.amount)}</div><button class="btn small" data-paid="${esc(b.id)}">Mark paid</button></div></div>`).join(""):empty("All caught up!","No unpaid bills recorded for "+monthLabel(selectedMonth)+".");
+ const recent=[...state.transactions].filter(t=>monthKey(t.date)===selectedMonth).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
  $("recentActivity").innerHTML=recent.length?recent.map(transactionRow).join(""):empty("No activity yet","Add a transaction to get started.");
  const goals=[...state.goals].sort((a,b)=>(safeNum(b.saved)/Math.max(1,safeNum(b.target)))-(safeNum(a.saved)/Math.max(1,safeNum(a.target)))).slice(0,3);
  $("goalPreview").innerHTML=goals.length?goals.map(g=>`<div class="list-row"><div class="item-icon">${esc(g.icon||"◎")}</div><div class="item-main"><div class="item-title">${esc(g.name)}</div><div class="progress"><span style="width:${Math.min(100,safeNum(g.saved)/Math.max(1,safeNum(g.target))*100)}%"></span></div><div class="item-sub">${money(g.saved)} of ${money(g.target)}</div></div><strong class="item-money">${Math.round(safeNum(g.saved)/Math.max(1,safeNum(g.target))*100)}%</strong></div>`).join(""):empty("Your goals start here","Create a savings goal.");
@@ -571,15 +587,15 @@ function transactionRow(t){
 }
 function renderTransactions(){
  const q=$("transactionSearch").value.trim().toLowerCase(),filter=$("transactionFilter").value;
- const list=[...state.transactions].filter(t=>(filter==="all"||t.type===filter)&&[t.description,t.category,t.note].some(v=>String(v||"").toLowerCase().includes(q))).sort((a,b)=>b.date.localeCompare(a.date));
+ const list=[...state.transactions].filter(t=>monthKey(t.date)===selectedMonth&&(filter==="all"||t.type===filter)&&[t.description,t.category,t.note].some(v=>String(v||"").toLowerCase().includes(q))).sort((a,b)=>b.date.localeCompare(a.date));
  $("transactionTable").innerHTML=list.length?list.map(t=>`<tr><td><strong>${esc(t.description)}</strong>${t.note?`<div class="muted">${esc(t.note)}</div>`:""}</td><td>${esc(t.category)}</td><td>${fmtDate(t.date)}</td><td><span class="badge ${t.type==="income"?"":"pending"}">${t.type==="income"?"Income":"Expense"}</span></td><td class="${t.type==="income"?"positive":""}">${t.type==="income"?"+":"−"}${money(t.amount)}</td><td><button class="btn small" data-edit-transaction="${esc(t.id)}">Edit</button> <button class="btn small danger" data-delete-transaction="${esc(t.id)}" aria-label="Delete ${esc(t.description)}">Delete</button></td></tr>`).join(""):`<tr><td colspan="6">${empty("No matching transactions","Try another search or add a transaction.")}</td></tr>`;
 }
 function renderBills(){
- const unpaid=state.bills.filter(b=>!b.paid),week=shiftDate(localDate(today),7);
+ const unpaid=state.bills.filter(b=>!b.paid&&monthKey(b.due)===selectedMonth),week=shiftDate(localDate(today),7);
  $("billUnpaidTotal").textContent=money(unpaid.reduce((s,b)=>s+safeNum(b.amount),0));
  $("billWeekTotal").textContent=money(unpaid.filter(b=>b.due>=localDate(today)&&b.due<=week).reduce((s,b)=>s+safeNum(b.amount),0));
- const sorted=[...state.bills].sort((a,b)=>a.due.localeCompare(b.due));
- $("billTable").innerHTML=sorted.length?sorted.map(b=>{const overdue=!b.paid&&b.due<localDate(today);return `<tr><td><strong>${esc(b.name)}</strong><div class="muted">${b.repeat==="monthly"?"Monthly":"One-time"}</div></td><td>${fmtDate(b.due)}</td><td>${money(b.amount)}</td><td><span class="badge ${b.paid?"":overdue?"overdue":"pending"}">${b.paid?"Paid":overdue?"Overdue":"Upcoming"}</span></td><td><button class="btn small" data-edit-bill="${esc(b.id)}">Edit</button> ${b.paid?`<button class="btn small" data-unpaid="${esc(b.id)}">Undo</button>`:`<button class="btn small" data-paid="${esc(b.id)}">Mark paid</button>`} <button class="btn small danger" data-delete-bill="${esc(b.id)}">Delete</button></td></tr>`}).join(""):`<tr><td colspan="5">${empty("No bills yet","Add your first bill to plan ahead.")}</td></tr>`;
+ const sorted=state.bills.filter(b=>monthKey(b.due)===selectedMonth).sort((a,b)=>a.due.localeCompare(b.due));
+ $("billTable").innerHTML=sorted.length?sorted.map(b=>{const overdue=!b.paid&&b.due<localDate(today);return `<tr><td><strong>${esc(b.name)}</strong><div class="muted">${b.repeat==="monthly"?"Monthly":b.repeat==="biweekly"?"Every 2 weeks":"One-time"}</div></td><td>${fmtDate(b.due)}</td><td>${money(b.amount)}</td><td><span class="badge ${b.paid?"":overdue?"overdue":"pending"}">${b.paid?"Paid":overdue?"Overdue":"Upcoming"}</span></td><td><button class="btn small" data-edit-bill="${esc(b.id)}">Edit</button> ${b.paid?`<button class="btn small" data-unpaid="${esc(b.id)}">Undo</button>`:`<button class="btn small" data-paid="${esc(b.id)}">Mark paid</button>`} <button class="btn small danger" data-delete-bill="${esc(b.id)}">Delete</button></td></tr>`}).join(""):`<tr><td colspan="5">${empty("No bills yet","Add your first bill to plan ahead.")}</td></tr>`;
 }
 function renderGoals(){
  $("goalTotalSaved").textContent=money(totalSaved());$("goalStillToGo").textContent=money(state.goals.reduce((s,g)=>s+Math.max(0,safeNum(g.target)-safeNum(g.saved)),0));
@@ -609,7 +625,7 @@ function openTransaction(transaction=null){
 let editingBill=null;
 function openBill(bill=null){
  editingBill=bill?bill.id:null;
- const form=$("billForm");form.reset();form.elements.due.value=localDate(today);
+ const form=$("billForm");form.reset();form.elements.due.value=dateForSelectedMonth();
  $("billDialogTitle").textContent=bill?"Edit bill":"Add a bill";
  if(bill){form.elements.name.value=bill.name;form.elements.amount.value=bill.amount;form.elements.due.value=bill.due;form.elements.repeat.value=bill.repeat||"once"}
  showDialog("billDialog");
@@ -624,12 +640,17 @@ function openGoal(goal=null){
 function markPaid(billId,paid){
  const bill=state.bills.find(b=>b.id===billId);if(!bill)return;
  bill.paid=paid;
- if(paid&&bill.repeat==="monthly"){
-   const next=new Date(bill.due+"T12:00:00");next.setMonth(next.getMonth()+1);
-   const originalDay=Number(bill.due.slice(8,10));
-   if(next.getDate()!==originalDay)next.setDate(0);
+ if(paid&&(bill.repeat==="monthly"||bill.repeat==="biweekly")){
+   const next=new Date(bill.due+"T12:00:00");
+   if(bill.repeat==="biweekly")next.setDate(next.getDate()+14);
+   else{
+     const originalDay=Number(bill.due.slice(8,10));
+     next.setDate(1);next.setMonth(next.getMonth()+1);
+     const lastDay=new Date(next.getFullYear(),next.getMonth()+1,0).getDate();
+     next.setDate(Math.min(originalDay,lastDay));
+   }
    const nextDue=localDate(next);
-   const alreadyExists=state.bills.some(b=>b.id!==bill.id&&b.name.toLowerCase()===bill.name.toLowerCase()&&b.repeat==="monthly"&&b.due===nextDue);
+   const alreadyExists=state.bills.some(b=>b.id!==bill.id&&b.name.toLowerCase()===bill.name.toLowerCase()&&b.repeat===bill.repeat&&b.due===nextDue);
    if(!alreadyExists)state.bills.push({...bill,id:id(),due:nextDue,paid:false});
  }
  save();render();toast(paid?"Bill marked paid.":"Bill marked unpaid.");
@@ -684,6 +705,7 @@ $("contributeForm").addEventListener("submit",e=>{
 $("checkPurchase").addEventListener("click",runAffordability);
 $("clearPurchase").addEventListener("click",()=>{$("purchaseName").value="";$("purchaseAmount").value="";$("purchaseExtra").value="";renderAffordability()});
 $("currency").addEventListener("change",e=>{state.currency=e.target.value;save();render();toast("Currency display updated.")});
+$("monthPicker").addEventListener("change",e=>{selectedMonth=e.target.value||currentMonth;render();toast("Showing "+monthLabel(selectedMonth)+".")});
 $("exportData").addEventListener("click",()=>exportFile("realbudget-backup.json",JSON.stringify(state,null,2),"application/json"));
 $("exportCsv").addEventListener("click",exportCsv);
 $("importData").addEventListener("click",()=>$("importFile").click());
@@ -695,7 +717,7 @@ $("importFile").addEventListener("change",async e=>{
   if(!confirm("Import this backup and replace the budget currently saved in this browser? Export your current budget first if you want to keep it.")){e.target.value="";return}
   const validCurrency=["USD","CAD","GBP","EUR","AUD"].includes(d.currency)?d.currency:"USD";
   const cleanTransactions=d.transactions.filter(t=>t&&typeof t.description==="string"&&["income","expense"].includes(t.type)&&validAmount(t.amount,.01)&&typeof t.date==="string").map(t=>({...t,id:String(t.id||id()).slice(0,100),description:t.description.slice(0,100),category:String(t.category||"Other").slice(0,50),note:String(t.note||"").slice(0,200),date:t.date.slice(0,10)}));
-  const cleanBills=d.bills.filter(b=>b&&typeof b.name==="string"&&validAmount(b.amount,.01)&&typeof b.due==="string").map(b=>({...b,id:String(b.id||id()).slice(0,100),name:b.name.slice(0,100),due:b.due.slice(0,10),paid:!!b.paid,repeat:b.repeat==="monthly"?"monthly":"once"}));
+  const cleanBills=d.bills.filter(b=>b&&typeof b.name==="string"&&validAmount(b.amount,.01)&&typeof b.due==="string").map(b=>({...b,id:String(b.id||id()).slice(0,100),name:b.name.slice(0,100),due:b.due.slice(0,10),paid:!!b.paid,repeat:["monthly","biweekly"].includes(b.repeat)?b.repeat:"once"}));
   const cleanGoals=d.goals.filter(g=>g&&typeof g.name==="string"&&validAmount(g.target,.01)&&validAmount(g.saved,0)).map(g=>({...g,id:String(g.id||id()).slice(0,100),name:g.name.slice(0,100),icon:String(g.icon||"✨").slice(0,12)}));
   const cleanBudgets={};if(d.budgets&&typeof d.budgets==="object")Object.entries(d.budgets).forEach(([k,v])=>{if(typeof k==="string"&&validAmount(v,.01))cleanBudgets[k.slice(0,50)]=Number(v)});state={currency:validCurrency,transactions:cleanTransactions,bills:cleanBills,goals:cleanGoals,budgets:cleanBudgets};save();render();toast("Backup imported.");
  }catch(err){toast(err.message||"Couldn't import this file.","error")}
