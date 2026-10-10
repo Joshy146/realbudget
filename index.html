@@ -566,10 +566,48 @@ function renderMonthPicker(){
  picker.innerHTML=options.reverse().join("");picker.value=selectedMonth;
  if(!picker.value){selectedMonth=currentMonth;picker.value=currentMonth}
 }
+
+function weekStartDate(date,weekStart){
+ const d=new Date(date+"T12:00:00"),back=(d.getDay()-Number(weekStart||0)+7)%7;d.setDate(d.getDate()-back);return localDate(d);
+}
+function shiftHours(x){
+ if(!x.date||!x.start||!x.end)return 0;
+ const [sh,sm]=x.start.split(":").map(Number),[eh,em]=x.end.split(":").map(Number);
+ let minutes=eh*60+em-(sh*60+sm);if(minutes<=0)minutes+=1440;
+ return Math.max(0,(minutes-Math.max(0,Math.min(720,Number(x.breakMinutes)||0)))/60);
+}
+function shiftCalculations(){
+ const p=state.workProfile||{},rate=Math.max(0,Number(p.rate)||0),start=Number(p.weekStart)||0,groups={},out={};
+ [...state.shifts].filter(x=>x.date).sort((a,b)=>(a.date+(a.start||"")).localeCompare(b.date+(b.start||""))).forEach(x=>{const key=weekStartDate(x.date,start);(groups[key]||(groups[key]=[])).push(x)});
+ Object.entries(groups).forEach(([week,items])=>{let used=0;items.forEach(x=>{const hours=shiftHours(x),regular=Math.max(0,Math.min(hours,40-used));used+=hours;const overtime=Math.max(0,hours-regular);out[x.id]={hours,regular,overtime,gross:regular*rate+overtime*rate*1.5,week}})});
+ return out;
+}
+function estimatedDeductions(gross){
+ const p=state.workProfile||{},federal=gross*Math.max(0,Number(p.federalRate)||0)/100,louisiana=gross*Math.max(0,Number(p.stateRate)||0)/100,fica=gross*.0765,other=Math.max(0,Number(p.otherDeductions)||0);
+ return {federal,louisiana,fica,other,total:federal+louisiana+fica+other,net:Math.max(0,gross-federal-louisiana-fica-other)};
+}
+function formatHours(n){return (Math.round((Number(n)||0)*100)/100).toFixed(2)}
+function nextPaydayDate(){const p=state.workProfile||{};return p.nextPayday||shiftDate(localDate(today),7)}
+function renderWork(){
+ const p=state.workProfile||{},form=$("workProfileForm");
+ if(form&&!form.dataset.loaded){form.elements.rate.value=p.rate||"";form.elements.frequency.value=p.frequency||"biweekly";form.elements.nextPayday.value=p.nextPayday||shiftDate(localDate(today),7);form.elements.weekStart.value=String(p.weekStart??0);form.elements.federalRate.value=p.federalRate??10;form.elements.stateRate.value=p.stateRate??3;form.elements.otherDeductions.value=p.otherDeductions??0;form.dataset.loaded="true"}
+ const calc=shiftCalculations(),shifts=state.shifts.filter(x=>monthKey(x.date)===selectedMonth).sort((a,b)=>b.date.localeCompare(a.date)||(b.start||"").localeCompare(a.start||""));
+ const hours=shifts.reduce((sum,x)=>sum+(calc[x.id]?.hours||0),0),gross=shifts.reduce((sum,x)=>sum+(calc[x.id]?.gross||0),0),ded=estimatedDeductions(gross);
+ $("workHoursTotal").textContent=formatHours(hours);$("workGrossTotal").textContent=money(gross);$("workNetTotal").textContent=money(ded.net);
+ $("shiftTable").innerHTML=shifts.length?shifts.map(x=>{const c=calc[x.id]||{hours:0,regular:0,overtime:0,gross:0};return '<tr><td>'+fmtDate(x.date)+'</td><td>'+esc(x.start)+'–'+esc(x.end)+(Number(x.breakMinutes)>0?'<div class="muted">'+esc(x.breakMinutes)+' min break</div>':'')+(x.note?'<div class="muted">'+esc(x.note)+'</div>':'')+'</td><td>'+formatHours(c.hours)+'</td><td>'+formatHours(c.regular)+'</td><td>'+formatHours(c.overtime)+'</td><td>'+money(c.gross)+'</td><td><button class="btn small" data-edit-shift="'+esc(x.id)+'">Edit</button> <button class="btn small danger" data-delete-shift="'+esc(x.id)+'">Delete</button></td></tr>'}).join(""):'<tr><td colspan="7">'+empty("No shifts logged for "+monthLabel(selectedMonth),"Add your first shift above to estimate your pay.")+'</td></tr>';
+ const payday=nextPaydayDate(),payDate=new Date(payday+"T12:00:00");$("nextPayDateLabel").textContent=payDate.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});$("nextPaySummary").textContent=p.rate>0?'Selected-month estimate: '+money(ded.net)+' take-home from '+formatHours(hours)+' logged hours. Pay frequency: '+({weekly:"weekly",biweekly:"every 2 weeks",semimonthly:"twice a month",monthly:"monthly"}[p.frequency]||"not set")+'.':'Enter your hourly rate to estimate take-home pay.';
+ const due=state.bills.filter(b=>!b.paid&&b.due>=localDate(today)&&b.due<=payday).sort((a,b)=>a.due.localeCompare(b.due));
+ $("paycheckBills").innerHTML=due.length?due.map(b=>'<div class="list-row"><div class="item-icon">▤</div><div class="item-main"><div class="item-title">'+esc(b.name)+'</div><div class="item-sub">Due '+fmtDate(b.due)+'</div></div><div class="item-right"><div class="item-money">'+money(b.amount)+'</div></div></div>').join(""):empty("No unpaid bills before payday","No unpaid bills are due between today and your next expected payday.");
+ const end=shiftDate(localDate(today),30),calendar=state.bills.filter(b=>!b.paid&&b.due>=localDate(today)&&b.due<=end).sort((a,b)=>a.due.localeCompare(b.due));
+ if($("billCalendarList"))$("billCalendarList").innerHTML=calendar.length?calendar.map(b=>'<div class="list-row"><div class="item-icon">▤</div><div class="item-main"><div class="item-title">'+esc(b.name)+'</div><div class="item-sub">'+fmtDate(b.due)+' · '+(b.due===localDate(today)?"Due today":"Upcoming")+'</div></div><div class="item-right"><div class="item-money">'+money(b.amount)+'</div></div></div>').join(""):empty("Nothing due in the next 30 days","Add bills and due dates to plan ahead.");
+ const review=[];for(let i=0;i<6;i++){const d=new Date(today.getFullYear(),today.getMonth()-i,1,12),key=localDate(d).slice(0,7),t=totals(key),b=state.bills.filter(x=>!x.paid&&monthKey(x.due)===key).reduce((sum,x)=>sum+safeNum(x.amount),0),g=state.shifts.filter(x=>monthKey(x.date)===key).reduce((sum,x)=>sum+(calc[x.id]?.gross||0),0);review.push({key,t,b,g,left:t.income-t.spent-b})}
+ $("monthlyReviewTable").innerHTML=review.map(x=>'<tr><td>'+esc(monthLabel(x.key))+'</td><td class="positive">'+money(x.t.income)+'</td><td>'+money(x.t.spent)+'</td><td>'+money(x.b)+'</td><td>'+money(x.g)+'</td><td class="'+(x.left<0?"negative":"")+'">'+money(x.left)+'</td></tr>').join("");
+}
+
 function render(){
  renderMonthPicker();
  $("todayLabel").textContent=("BUDGET PERIOD · "+monthLabel(selectedMonth)).toUpperCase();
- renderOverview();renderTransactions();renderBills();renderGoals();renderAffordability();renderMoneyCoach();$("currency").value=state.currency||"USD";
+ renderOverview();renderTransactions();renderBills();renderGoals();renderAffordability();renderMoneyCoach();renderWork();$("currency").value=state.currency||"USD";
  $("sampleStatus").textContent=[...state.transactions,...state.bills,...state.goals].some(x=>x.demo)?"Included":"Cleared";
 }
 function renderMoneyCoach(){
