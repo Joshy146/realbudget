@@ -197,6 +197,7 @@ main{margin:0;padding:20px 14px 95px}
     <button class="active" data-page="overview"><span class="ico">◫</span>Overview</button>
     <button data-page="transactions"><span class="ico">⇄</span>Activity</button>
     <button data-page="bills"><span class="ico">▤</span>My bills</button>
+    <button data-page="work"><span class="ico">◷</span>Work & pay</button>
     <button data-page="goals"><span class="ico">◎</span>My goals</button>
     <button data-page="afford"><span class="ico">✳</span>Can I afford it?</button>
     <button data-page="coach"><span class="ico">✦</span>Money coach</button>
@@ -271,6 +272,46 @@ main{margin:0;padding:20px 14px 95px}
     <article class="card"><div class="stat-top">Due in 7 days <span class="stat-icon">◷</span></div><div class="amount" id="billWeekTotal">$0</div><div class="stat-foot">Based on the due dates entered</div></article>
   </div>
   <div class="card"><div class="section-head"><div><h2>Your bills</h2><p>Know what's due and when.</p></div><button class="btn primary" id="addBill">＋ Add a bill</button></div><div class="table-wrap"><table><thead><tr><th>Bill</th><th>Due date</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="billTable"></tbody></table></div></div>
+</section>
+
+<section class="page" id="page-work">
+  <div class="callout"><strong>Your hours, your paycheck.</strong> Log shifts and estimate regular pay, weekly overtime, payroll taxes, and take-home pay. This is a planning estimate—not an official payroll calculation. Check your employer's workweek, overtime eligibility, and pay stub.</div>
+  <div class="grid stats">
+    <article class="card"><div class="stat-top">Hours in selected period <span class="stat-icon">◷</span></div><div class="amount" id="workHoursTotal">0</div><div class="stat-foot">After unpaid breaks</div></article>
+    <article class="card"><div class="stat-top">Estimated gross pay <span class="stat-icon">↗</span></div><div class="amount positive" id="workGrossTotal">$0</div><div class="stat-foot">Includes estimated overtime</div></article>
+    <article class="card"><div class="stat-top">Estimated take-home <span class="stat-icon">✓</span></div><div class="amount" id="workNetTotal">$0</div><div class="stat-foot">After estimated deductions</div></article>
+  </div>
+  <div class="grid two-col">
+    <article class="card"><div class="section-head"><div><h2>Pay & tax settings</h2><p>Set these once; update them if your job changes.</p></div></div>
+      <form id="workProfileForm"><div class="form-grid">
+        <label class="full">Hourly rate ($)<input name="rate" type="number" min="0.01" max="999999" step="0.01" required placeholder="e.g. 18.50"></label>
+        <label>Pay frequency<select name="frequency"><option value="weekly">Weekly</option><option value="biweekly">Every 2 weeks</option><option value="semimonthly">Twice a month</option><option value="monthly">Monthly</option></select></label>
+        <label>Next payday<input name="nextPayday" type="date" required></label>
+        <label>Workweek starts<select name="weekStart"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select></label>
+        <label>Federal withholding estimate (%)<input name="federalRate" type="number" min="0" max="40" step="0.1" required></label>
+        <label>Louisiana withholding estimate (%)<input name="stateRate" type="number" min="0" max="10" step="0.1" required></label>
+        <label>Other deductions per check ($)<input name="otherDeductions" type="number" min="0" max="999999" step="0.01" required></label>
+      </div><p class="muted" style="font-size:11px">Defaults are editable planning estimates. Social Security and Medicare are estimated separately. Use the percentages shown on your actual pay stub for a closer estimate.</p><div class="form-actions"><button class="btn primary" type="submit">Save pay settings</button></div></form>
+    </article>
+    <article class="card"><div class="section-head"><div><h2>Paycheck outlook</h2><p>Estimated next pay date and bills that may need coverage.</p></div></div>
+      <div class="balance-card" style="min-height:0;padding:20px;margin-bottom:14px"><div class="eyebrow">NEXT EXPECTED PAYDAY</div><div class="amount" id="nextPayDateLabel">Set a payday</div><div class="balance-caption" id="nextPaySummary">Save your pay settings to start planning.</div></div>
+      <h3 style="margin-bottom:10px">Bills due before payday</h3><div id="paycheckBills"></div>
+      <div class="form-actions"><button class="btn" type="button" id="addPaycheckIncome">＋ Record paycheck as income</button></div>
+    </article>
+  </div>
+  <div class="card"><div class="section-head"><div><h2>Log a shift</h2><p>Enter start/end times and unpaid break minutes. Overtime is calculated by workweek, not by averaging two weeks together.</p></div></div>
+    <form id="shiftForm"><div class="form-grid">
+      <label>Work date<input name="date" type="date" required></label><label>Start time<input name="start" type="time" required></label><label>End time<input name="end" type="time" required></label>
+      <label>Unpaid break (minutes)<input name="breakMinutes" type="number" min="0" max="720" step="1" value="0" required></label>
+      <label class="full">Note (optional)<input name="note" maxlength="160" placeholder="e.g. closing shift"></label>
+    </div><div class="form-actions"><button class="btn primary" type="submit">＋ Save shift</button></div></form>
+  </div>
+  <div class="card"><div class="section-head"><div><h2>Hours & estimated pay</h2><p>Shifts in the selected month. Edit or remove entries if you make a mistake.</p></div></div>
+    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Shift</th><th>Hours</th><th>Regular</th><th>OT</th><th>Gross estimate</th><th>Actions</th></tr></thead><tbody id="shiftTable"></tbody></table></div>
+  </div>
+  <div class="card"><div class="section-head"><div><h2>Month-by-month review</h2><p>Compare recorded income, expenses, unpaid bills, and estimated work pay.</p></div></div>
+    <div class="table-wrap"><table><thead><tr><th>Month</th><th>Income</th><th>Expenses</th><th>Unpaid bills</th><th>Logged gross pay</th><th>Income less expenses & bills</th></tr></thead><tbody id="monthlyReviewTable"></tbody></table></div>
+  </div>
 </section>
 
 <section class="page" id="page-goals">
@@ -463,12 +504,16 @@ function loadState(){
     const raw=localStorage.getItem(STORAGE_KEY);
     if(raw){
       const parsed=JSON.parse(raw);
-      if(parsed&&Array.isArray(parsed.transactions)&&Array.isArray(parsed.bills)&&Array.isArray(parsed.goals))return {...parsed,currency:parsed.currency||"USD",budgets:parsed.budgets&&typeof parsed.budgets==="object"?parsed.budgets:{}};
+      if(parsed&&Array.isArray(parsed.transactions)&&Array.isArray(parsed.bills)&&Array.isArray(parsed.goals))return {...parsed,currency:parsed.currency||"USD",budgets:parsed.budgets&&typeof parsed.budgets==="object"?parsed.budgets:{},monthlyBudgets:parsed.monthlyBudgets&&typeof parsed.monthlyBudgets==="object"?parsed.monthlyBudgets:{},workProfile:parsed.workProfile&&typeof parsed.workProfile==="object"?parsed.workProfile:{},shifts:Array.isArray(parsed.shifts)?parsed.shifts:[]};
     }
   }catch(e){console.warn("Could not read saved budget",e)}
-  return sampleData();
+  return {...sampleData(),monthlyBudgets:{},workProfile:{rate:0,frequency:"biweekly",nextPayday:localDate(new Date(today.getFullYear(),today.getMonth(),today.getDate()+7,12)),weekStart:0,federalRate:10,stateRate:3,otherDeductions:0},shifts:[]};
 }
 let state=loadState();
+state.monthlyBudgets=state.monthlyBudgets||{};
+if(!state.monthlyBudgets[currentMonth])state.monthlyBudgets[currentMonth]={...(state.budgets||{})};
+state.workProfile=state.workProfile||{rate:0,frequency:"biweekly",nextPayday:localDate(new Date(today.getFullYear(),today.getMonth(),today.getDate()+7,12)),weekStart:0,federalRate:10,stateRate:3,otherDeductions:0};
+state.shifts=Array.isArray(state.shifts)?state.shifts:[];
 let activePage="overview";
 let contributeGoalId=null;
 let toastTimer;
@@ -499,7 +544,8 @@ function go(page){
   goals:["Make room for what matters.","Small steps. Real progress."],
   afford:["Before you buy, check in.","Make a decision with your numbers in view."],
   coach:["Small insights, better decisions.","A private check-in based on the numbers you've entered."],
-  settings:["Your data, your rules.","Manage your budget and your privacy."]
+  settings:["Your data, your rules.","Manage your budget and your privacy."],
+  work:["Work hours & paycheck planner.","Track shifts, estimate overtime, and plan each paycheck."]
  };
  $("pageTitle").textContent=info[page][0];$("pageSubtitle").textContent=info[page][1];
  window.scrollTo({top:0,behavior:"smooth"});
@@ -554,9 +600,10 @@ function renderMoneyCoach(){
  if(top) insights.push({icon:"◇",title:top[0]+" is your largest recorded category",body:"You've recorded "+money(top[1])+" in "+top[0].toLowerCase()+" this month. Check that this matches your expectations before deciding where to make changes.",tone:"",action:"See transactions",page:"transactions"});
  $("coachInsights").innerHTML=insights.map(i=>'<div class="list-row"><div class="item-icon">'+esc(i.icon)+'</div><div class="item-main"><div class="item-title">'+esc(i.title)+'</div><div class="item-sub" style="white-space:normal;line-height:1.6;margin-top:5px">'+esc(i.body)+'</div><div style="margin-top:9px"><button class="btn small" data-go="'+esc(i.page)+'">'+esc(i.action)+' →</button></div></div></div>').join("");
  const entries=Object.entries(categories).sort((a,b)=>b[1]-a[1]);
- const budgetNames=[...new Set([...Object.keys(state.budgets||{}),...entries.map(x=>x[0])])].sort();
+ const currentBudgets=state.monthlyBudgets?.[selectedMonth]||(selectedMonth===currentMonth?(state.budgets||{}):{});
+ const budgetNames=[...new Set([...Object.keys(currentBudgets),...entries.map(x=>x[0])])].sort();
  $("coachCategories").innerHTML=budgetNames.length?budgetNames.map(name=>{
-   const amount=categories[name]||0,limit=safeNum((state.budgets||{})[name]),pct=limit>0?amount/limit*100:0,over=limit>0&&amount>limit;
+   const amount=categories[name]||0,limit=safeNum(currentBudgets[name]),pct=limit>0?amount/limit*100:0,over=limit>0&&amount>limit;
    return '<div class="list-row"><div class="item-icon">'+esc(categoryIcon(name))+'</div><div class="item-main"><div class="item-title">'+esc(name)+'</div><div class="item-sub">'+(limit>0?money(amount)+' of '+money(limit)+' · '+(over?money(amount-limit)+' over':money(limit-amount)+' left'):(amount>0?money(amount)+' spent · no limit set':'No spending recorded'))+'</div>'+(limit>0?'<div class="progress"><span style="width:'+Math.min(100,pct)+'%;background:'+(over?'var(--red)':'var(--green)')+'"></span></div>':'')+'</div><div class="item-right">'+(limit>0?'<span class="badge '+(over?'overdue':'')+'">'+Math.round(pct)+'%</span>':'<span class="badge pending">No limit</span>')+'<div style="margin-top:5px"><button class="btn small" data-edit-budget="'+esc(name)+'">Edit</button></div></div></div>';
  }).join(""):empty("No budgets or spending yet","Set a category budget to start planning your month.");
 }
@@ -668,8 +715,8 @@ document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",(
 document.addEventListener("click",e=>{const nav=e.target.closest("[data-go]");if(nav&&nav.dataset.go)go(nav.dataset.go)});
 $("refreshCoach").addEventListener("click",()=>{renderMoneyCoach();toast("Your money check-in is refreshed.")});
 $("setBudget").addEventListener("click",()=>{const form=$("budgetForm");form.reset();showDialog("budgetDialog")});
-$("budgetForm").addEventListener("submit",e=>{e.preventDefault();const d=new FormData(e.currentTarget),category=String(d.get("category")),amount=Number(d.get("amount"));if(!validAmount(amount,.01)){toast("Enter a budget amount greater than zero.","error");return}state.budgets=state.budgets||{};state.budgets[category]=amount;save();render();closeDialog("budgetDialog");toast(category+" budget saved.")});
-document.addEventListener("click",e=>{const b=e.target.closest("button[data-edit-budget]");if(!b)return;const category=b.dataset.editBudget,form=$("budgetForm");form.elements.category.value=category;form.elements.amount.value=state.budgets?.[category]||"";showDialog("budgetDialog")});
+$("budgetForm").addEventListener("submit",e=>{e.preventDefault();const d=new FormData(e.currentTarget),category=String(d.get("category")),amount=Number(d.get("amount"));if(!validAmount(amount,.01)){toast("Enter a budget amount greater than zero.","error");return}state.monthlyBudgets=state.monthlyBudgets||{};state.monthlyBudgets[selectedMonth]=state.monthlyBudgets[selectedMonth]||{};state.monthlyBudgets[selectedMonth][category]=amount;if(selectedMonth===currentMonth)state.budgets={...state.monthlyBudgets[selectedMonth]};save();render();closeDialog("budgetDialog");toast(category+" budget saved for "+monthLabel(selectedMonth)+".")});
+document.addEventListener("click",e=>{const b=e.target.closest("button[data-edit-budget]");if(!b)return;const category=b.dataset.editBudget,form=$("budgetForm");form.elements.category.value=category;form.elements.amount.value=(state.monthlyBudgets?.[selectedMonth]||state.budgets||{})[category]||"";showDialog("budgetDialog")});
 $("quickAdd").addEventListener("click",openTransaction);$("addTransaction2").addEventListener("click",openTransaction);
 $("addBill").addEventListener("click",openBill);$("addGoal").addEventListener("click",()=>openGoal());
 document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeDialog(b.dataset.close)));
