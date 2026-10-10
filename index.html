@@ -514,7 +514,7 @@ function setDefaultDate(form){const el=form.querySelector('[name="date"]');if(el
 function renderMonthPicker(){
  const picker=$("monthPicker");if(!picker)return;
  const dates=[...state.transactions.map(t=>t.date),...state.bills.map(b=>b.due)].filter(Boolean).map(monthKey).sort();
- const earliest=dates[0]||localDate(new Date(today.getFullYear(),today.getMonth()-24,1,12)).slice(0,7);
+ const historyStart=localDate(new Date(today.getFullYear(),today.getMonth()-24,1,12)).slice(0,7);const earliest=dates[0]&&dates[0]<historyStart?dates[0]:historyStart;
  const start=new Date(earliest+"-01T12:00:00"),end=new Date(today.getFullYear(),today.getMonth()+12,1,12);
  const options=[];for(let d=new Date(start);d<=end;d.setMonth(d.getMonth()+1)){const key=localDate(d).slice(0,7);options.push('<option value="'+key+'">'+esc(monthLabel(key))+(key===currentMonth?' · Current':'')+'</option>')}
  picker.innerHTML=options.reverse().join("");picker.value=selectedMonth;
