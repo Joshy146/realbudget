@@ -5,6 +5,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0b0e0d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
 <meta name="description" content="RealBudget helps you plan your paychecks, manage bills, track spending, and build a stronger financial future!">
 <title>RealBudget — Take control of your money</title>
 <style>
@@ -624,7 +628,9 @@ function markPaid(billId,paid){
    const next=new Date(bill.due+"T12:00:00");next.setMonth(next.getMonth()+1);
    const originalDay=Number(bill.due.slice(8,10));
    if(next.getDate()!==originalDay)next.setDate(0);
-   state.bills.push({...bill,id:id(),due:localDate(next),paid:false});
+   const nextDue=localDate(next);
+   const alreadyExists=state.bills.some(b=>b.id!==bill.id&&b.name.toLowerCase()===bill.name.toLowerCase()&&b.repeat==="monthly"&&b.due===nextDue);
+   if(!alreadyExists)state.bills.push({...bill,id:id(),due:nextDue,paid:false});
  }
  save();render();toast(paid?"Bill marked paid.":"Bill marked unpaid.");
 }
@@ -733,6 +739,7 @@ document.addEventListener("click",e=>{
 document.querySelectorAll("dialog").forEach(d=>d.addEventListener("click",e=>{if(e.target===d)closeDialog(d.id)}));
 if(!localStorage.getItem(STORAGE_KEY))save();
 render();
+if("serviceWorker" in navigator && location.protocol!=="file:")navigator.serviceWorker.register("./sw.js").catch(()=>{});
 })();
 </script>
 </body>
