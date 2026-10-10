@@ -279,7 +279,8 @@ main{margin:0;padding:20px 14px 95px}
   <div class="callout"><strong>Your hours, your paycheck.</strong> Log shifts and estimate regular pay, weekly overtime, payroll taxes, and take-home pay. This is a planning estimate—not an official payroll calculation. Check your employer's workweek, overtime eligibility, and pay stub.</div>
   <div class="grid stats">
     <article class="card"><div class="stat-top">Hours in selected period <span class="stat-icon">◷</span></div><div class="amount" id="workHoursTotal">0</div><div class="stat-foot">After unpaid breaks</div></article>
-    <article class="card"><div class="stat-top">Estimated gross pay <span class="stat-icon">↗</span></div><div class="amount positive" id="workGrossTotal">$0</div><div class="stat-foot">Includes estimated overtime</div></article>
+    <article class="card"><div class="stat-top">Estimated gross pay <span class="stat-icon">↗</span></div><div class="amount positive" id="workGrossTotal">$0</div><div class="stat-foot">Shifts worked in selected month</div></article>
+    <article class="card"><div class="stat-top">Paychecks dated this month <span class="stat-icon">💵</span></div><div class="amount positive" id="workPaycheckMonthTotal">$0</div><div class="stat-foot" id="workPaycheckMonthFoot">Can include shifts from the previous month</div></article>
     <article class="card"><div class="stat-top">Estimated take-home <span class="stat-icon">✓</span></div><div class="amount" id="workNetTotal">$0</div><div class="stat-foot">After estimated deductions</div></article>
   </div>
   <div class="grid two-col">
@@ -310,7 +311,7 @@ main{margin:0;padding:20px 14px 95px}
   <div class="card"><div class="section-head"><div><h2>Hours & estimated pay</h2><p>Shifts in the selected month. Edit or remove entries if you make a mistake.</p></div></div>
     <div class="table-wrap"><table><thead><tr><th>Date</th><th>Shift</th><th>Hours</th><th>Regular</th><th>OT</th><th>Gross estimate</th><th>Actions</th></tr></thead><tbody id="shiftTable"></tbody></table></div>
   </div>
-  <div class="card"><div class="section-head"><div><h2>Month-by-month review</h2><p>Compare recorded income, expenses, unpaid bills, and estimated work pay.</p></div></div>
+  <div class="card"><div class="section-head"><div><h2>Month-by-month review</h2><p>Compare recorded income, expenses, unpaid bills, and gross pay from shifts worked in each month. Paychecks may include earlier shifts.</p></div></div>
     <div class="table-wrap"><table><thead><tr><th>Month</th><th>Income</th><th>Expenses</th><th>Unpaid bills</th><th>Logged gross pay</th><th>Income less expenses & bills</th></tr></thead><tbody id="monthlyReviewTable"></tbody></table></div>
   </div>
 </section>
@@ -620,12 +621,43 @@ function nextPaydayDate(){
  }
  return key;
 }
+function stepPayday(date,direction){
+ const p=state.workProfile||{},frequency=p.frequency||"biweekly",d=new Date(date+"T12:00:00"),day=d.getDate();
+ if(frequency==="weekly")d.setDate(d.getDate()+7*direction);
+ else if(frequency==="biweekly")d.setDate(d.getDate()+14*direction);
+ else if(frequency==="semimonthly"){
+  if(direction>0){if(day<15)d.setDate(15);else{d.setDate(1);d.setMonth(d.getMonth()+1)}}
+  else{if(day>15)d.setDate(15);else{d.setDate(1);d.setMonth(d.getMonth()-1);d.setDate(15)}}
+ }else{
+  const anchor=Number(String(p.nextPayday||date).slice(8,10))||day;
+  d.setDate(1);d.setMonth(d.getMonth()+direction);d.setDate(Math.min(anchor,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));
+ }
+ return localDate(d);
+}
+function paycheckMonthEstimate(month){
+ const p=state.workProfile||{};
+ if(!p.nextPayday||!p.rate)return {gross:0,priorMonthShifts:0,shiftCount:0,paydays:0};
+ const first=month+"-01",last=localDate(new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0,12));
+ const dates=new Set([p.nextPayday]);let forward=p.nextPayday,backward=p.nextPayday;
+ for(let i=0;i<240;i++){forward=stepPayday(forward,1);backward=stepPayday(backward,-1);dates.add(forward);dates.add(backward)}
+ const paydays=[...dates].filter(d=>d>=first&&d<=last).sort();
+ const calc=shiftCalculations(),used=new Set();let gross=0,priorMonthShifts=0,shiftCount=0;
+ paydays.forEach(payday=>{
+  const range=payPeriodRange(payday);
+  state.shifts.filter(x=>x.date>=range.start&&x.date<=range.end&&!used.has(x.id)).forEach(x=>{
+   used.add(x.id);shiftCount++;if(monthKey(x.date)!==month)priorMonthShifts++;gross+=calc[x.id]?.gross||0;
+  });
+ });
+ return {gross,priorMonthShifts,shiftCount,paydays:paydays.length};
+}
 function renderWork(){
  const p=state.workProfile||{},form=$("workProfileForm");
  if(form&&!form.dataset.loaded){form.elements.rate.value=p.rate||"";form.elements.frequency.value=p.frequency||"biweekly";form.elements.nextPayday.value=p.nextPayday||shiftDate(localDate(today),7);form.elements.weekStart.value=String(p.weekStart??0);form.elements.federalRate.value=p.federalRate??10;form.elements.stateRate.value=p.stateRate??3;form.elements.otherDeductions.value=p.otherDeductions??0;form.dataset.loaded="true"}
  const calc=shiftCalculations(),shifts=state.shifts.filter(x=>monthKey(x.date)===selectedMonth).sort((a,b)=>b.date.localeCompare(a.date)||(b.start||"").localeCompare(a.start||""));
- const hours=shifts.reduce((sum,x)=>sum+(calc[x.id]?.hours||0),0),gross=shifts.reduce((sum,x)=>sum+(calc[x.id]?.gross||0),0),ded=estimatedDeductions(gross,checksPerMonth());
+ const hours=shifts.reduce((sum,x)=>sum+(calc[x.id]?.hours||0),0),gross=shifts.reduce((sum,x)=>sum+(calc[x.id]?.gross||0),0),ded=estimatedDeductions(gross,checksPerMonth()),payMonth=paycheckMonthEstimate(selectedMonth);
  $("workHoursTotal").textContent=formatHours(hours);$("workGrossTotal").textContent=money(gross);$("workNetTotal").textContent=money(ded.net);
+ $("workPaycheckMonthTotal").textContent=money(payMonth.gross);
+ $("workPaycheckMonthFoot").textContent=payMonth.paydays?payMonth.shiftCount+" shifts in "+payMonth.paydays+" scheduled paycheck"+(payMonth.paydays===1?"":"s")+(payMonth.priorMonthShifts?"; includes "+payMonth.priorMonthShifts+" from other month"+(payMonth.priorMonthShifts===1?"":"s"):""):"Set your next payday to estimate paycheck-month totals";
  $("shiftTable").innerHTML=shifts.length?shifts.map(x=>{const c=calc[x.id]||{hours:0,regular:0,overtime:0,gross:0};return '<tr><td>'+fmtDate(x.date)+'</td><td>'+esc(x.start)+'–'+esc(x.end)+(Number(x.breakMinutes)>0?'<div class="muted">'+esc(x.breakMinutes)+' min break</div>':'')+(x.note?'<div class="muted">'+esc(x.note)+'</div>':'')+'</td><td>'+formatHours(c.hours)+'</td><td>'+formatHours(c.regular)+'</td><td>'+formatHours(c.overtime)+'</td><td>'+money(c.gross)+'</td><td><button class="btn small" data-edit-shift="'+esc(x.id)+'">Edit</button> <button class="btn small danger" data-delete-shift="'+esc(x.id)+'">Delete</button></td></tr>'}).join(""):'<tr><td colspan="7">'+empty("No shifts logged for "+monthLabel(selectedMonth),"Add your first shift above to estimate your pay.")+'</td></tr>';
  const check=nextPaycheckEstimate(),payday=check.payday,payDate=new Date(payday+"T12:00:00");if(form)form.elements.nextPayday.value=payday;$("nextPayDateLabel").textContent=payDate.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});$("nextPaySummary").textContent=p.rate>0?'Pay period '+fmtDate(check.range.start)+' – '+fmtDate(check.range.end)+': '+money(check.gross)+' gross / '+money(check.deductions.net)+' estimated take-home from '+check.entries.length+' logged shift'+(check.entries.length===1?"":"s")+'.':'Enter your hourly rate to estimate take-home pay.';
  const due=state.bills.filter(b=>!b.paid&&b.due>=localDate(today)&&b.due<=payday).sort((a,b)=>a.due.localeCompare(b.due));
@@ -732,6 +764,7 @@ function runAffordability(){
  $("affordDescription").textContent=`${money(total)} total cost for ${$("purchaseName").value.trim()||"this purchase"}. Your estimated available amount before the purchase is ${money(base)}.`;
  const pct=base>0?Math.min(100,Math.max(0,after/base*100)):0;$("affordProgress").style.width=pct+"%";$("affordFoot").textContent=after<0?"This purchase would put your estimated budget below zero.":`You would have ${money(after)} remaining in this month's estimate. Remember unrecorded expenses and future needs.`;
 }
+let editingShift=null;
 let editingTransaction=null;
 function openTransaction(transaction=null){
  editingTransaction=transaction?transaction.id:null;
