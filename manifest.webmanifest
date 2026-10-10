@@ -1,0 +1,22 @@
+{
+  "name": "RealBudget — Personal Budget Planner",
+  "short_name": "RealBudget",
+  "description": "A private, offline-friendly budget planner for income, expenses, bills, and savings goals.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0e0d",
+  "theme_color": "#0b0e0d",
+  "categories": [
+    "finance",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
