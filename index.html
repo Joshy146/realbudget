@@ -617,6 +617,7 @@ function renderWork(){
 }
 
 function render(){
+ ensureRecurringBills();
  renderMonthPicker();
  $("todayLabel").textContent=("BUDGET PERIOD · "+monthLabel(selectedMonth)).toUpperCase();
  renderOverview();renderTransactions();renderBills();renderGoals();renderAffordability();renderMoneyCoach();renderWork();$("currency").value=state.currency||"USD";
@@ -734,21 +735,36 @@ function openGoal(goal=null){
  if(goal){form.elements.name.value=goal.name;form.elements.target.value=goal.target;form.elements.saved.value=goal.saved;form.elements.icon.value=goal.icon||"✨"}
  showDialog("goalDialog");
 }
+function nextBillDate(bill){
+ const next=new Date(bill.due+"T12:00:00");
+ if(bill.repeat==="biweekly")next.setDate(next.getDate()+14);
+ else{
+  const anchor=Number(bill.anchorDay)||Number(bill.due.slice(8,10));
+  next.setDate(1);next.setMonth(next.getMonth()+1);
+  next.setDate(Math.min(anchor,new Date(next.getFullYear(),next.getMonth()+1,0).getDate()));
+ }
+ return localDate(next);
+}
+function ensureRecurringBills(){
+ const horizon=shiftDate(localDate(today),90),series=[...state.bills].filter(b=>b&&b.due&&["monthly","biweekly"].includes(b.repeat)).sort((a,b)=>a.due.localeCompare(b.due));
+ let changed=false;
+ for(const bill of series){
+  let cursor=bill.due,guard=0;
+  while(cursor<=horizon&&guard++<120){
+   const nextDue=nextBillDate({...bill,due:cursor});
+   const exists=state.bills.some(b=>b.name.toLowerCase()===bill.name.toLowerCase()&&Number(b.amount)===Number(bill.amount)&&b.repeat===bill.repeat&&b.due===nextDue);
+   if(!exists){state.bills.push({...bill,id:id(),due:nextDue,anchorDay:Number(bill.anchorDay)||Number(bill.due.slice(8,10)),paid:false});changed=true}
+   cursor=nextDue;
+  }
+ }
+ if(changed)save();
+}
 function markPaid(billId,paid){
  const bill=state.bills.find(b=>b.id===billId);if(!bill)return;
  bill.paid=paid;
  if(paid&&(bill.repeat==="monthly"||bill.repeat==="biweekly")){
-   const next=new Date(bill.due+"T12:00:00");
-   if(bill.repeat==="biweekly")next.setDate(next.getDate()+14);
-   else{
-     const originalDay=Number(bill.due.slice(8,10));
-     next.setDate(1);next.setMonth(next.getMonth()+1);
-     const lastDay=new Date(next.getFullYear(),next.getMonth()+1,0).getDate();
-     next.setDate(Math.min(originalDay,lastDay));
-   }
-   const nextDue=localDate(next);
-   const alreadyExists=state.bills.some(b=>b.id!==bill.id&&b.name.toLowerCase()===bill.name.toLowerCase()&&b.repeat===bill.repeat&&b.due===nextDue);
-   if(!alreadyExists)state.bills.push({...bill,id:id(),due:nextDue,paid:false});
+  const nextDue=nextBillDate(bill),alreadyExists=state.bills.some(b=>b.name.toLowerCase()===bill.name.toLowerCase()&&Number(b.amount)===Number(bill.amount)&&b.repeat===bill.repeat&&b.due===nextDue);
+  if(!alreadyExists)state.bills.push({...bill,id:id(),due:nextDue,anchorDay:Number(bill.anchorDay)||Number(bill.due.slice(8,10)),paid:false});
  }
  save();render();toast(paid?"Bill marked paid.":"Bill marked unpaid.");
 }
