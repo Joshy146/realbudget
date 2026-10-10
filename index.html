@@ -301,12 +301,14 @@ main{margin:0;padding:20px 14px 95px}
       <div class="form-actions"><button class="btn" type="button" id="addPaycheckIncome">＋ Record next paycheck estimate as income</button></div>
     </article>
   </div>
-  <div class="card"><div class="section-head"><div><h2>Log a shift</h2><p>Enter start/end times and unpaid break minutes. Overtime is calculated by workweek, not by averaging two weeks together.</p></div></div>
+  <div class="card"><div class="section-head"><div><h2>Quick log a shift</h2><p>Just enter the date and total hours from your schedule or timecard. No start/end times needed.</p></div></div>
     <form id="shiftForm"><div class="form-grid">
-      <label>Work date<input name="date" type="date" required></label><label>Start time<input name="start" type="time" required></label><label>End time<input name="end" type="time" required></label>
+      <label>Work date<input name="date" type="date" required></label>
+      <label>Total hours worked<input name="hoursWorked" type="number" min="0.25" max="24" step="0.25" required placeholder="e.g. 12"></label>
       <label>Unpaid break (minutes)<input name="breakMinutes" type="number" min="0" max="720" step="1" value="0" required></label>
-      <label class="full">Note (optional)<input name="note" maxlength="160" placeholder="e.g. closing shift"></label>
-    </div><div class="form-actions"><button class="btn primary" type="submit">＋ Save shift</button></div></form>
+      <label>Note (optional)<input name="note" maxlength="160" placeholder="e.g. night shift"></label>
+    </div><div class="form-actions"><button class="btn primary" type="submit">＋ Save shift</button><button class="btn" type="button" id="cancelShiftEdit" hidden>Cancel edit</button></div></form>
+    <p class="muted" style="font-size:11px;margin-bottom:0">Overtime is estimated automatically after 40 hours in your selected workweek. If the hours you enter are already after unpaid breaks, leave the break at 0.</p>
   </div>
   <div class="card"><div class="section-head"><div><h2>Hours & estimated pay</h2><p>Shifts in the selected month. Edit or remove entries if you make a mistake.</p></div></div>
     <div class="table-wrap"><table><thead><tr><th>Date</th><th>Shift</th><th>Hours</th><th>Regular</th><th>OT</th><th>Gross estimate</th><th>Actions</th></tr></thead><tbody id="shiftTable"></tbody></table></div>
@@ -573,7 +575,9 @@ function weekStartDate(date,weekStart){
  const d=new Date(date+"T12:00:00"),back=(d.getDay()-Number(weekStart||0)+7)%7;d.setDate(d.getDate()-back);return localDate(d);
 }
 function shiftHours(x){
- if(!x.date||!x.start||!x.end)return 0;
+ if(!x.date)return 0;
+ if(Number.isFinite(Number(x.durationHours))&&x.durationHours!==""&&x.durationHours!==null)return Math.max(0,Number(x.durationHours)-Math.max(0,Math.min(720,Number(x.breakMinutes)||0))/60);
+ if(!x.start||!x.end)return 0;
  const [sh,sm]=x.start.split(":").map(Number),[eh,em]=x.end.split(":").map(Number);
  let minutes=eh*60+em-(sh*60+sm);if(minutes<=0)minutes+=1440;
  return Math.max(0,(minutes-Math.max(0,Math.min(720,Number(x.breakMinutes)||0)))/60);
@@ -658,7 +662,7 @@ function renderWork(){
  $("workHoursTotal").textContent=formatHours(hours);$("workGrossTotal").textContent=money(gross);$("workNetTotal").textContent=money(ded.net);
  $("workPaycheckMonthTotal").textContent=money(payMonth.gross);
  $("workPaycheckMonthFoot").textContent=payMonth.paydays?payMonth.shiftCount+" shifts in "+payMonth.paydays+" scheduled paycheck"+(payMonth.paydays===1?"":"s")+(payMonth.priorMonthShifts?"; includes "+payMonth.priorMonthShifts+" from other month"+(payMonth.priorMonthShifts===1?"":"s"):""):"Set your next payday to estimate paycheck-month totals";
- $("shiftTable").innerHTML=shifts.length?shifts.map(x=>{const c=calc[x.id]||{hours:0,regular:0,overtime:0,gross:0};return '<tr><td>'+fmtDate(x.date)+'</td><td>'+esc(x.start)+'–'+esc(x.end)+(Number(x.breakMinutes)>0?'<div class="muted">'+esc(x.breakMinutes)+' min break</div>':'')+(x.note?'<div class="muted">'+esc(x.note)+'</div>':'')+'</td><td>'+formatHours(c.hours)+'</td><td>'+formatHours(c.regular)+'</td><td>'+formatHours(c.overtime)+'</td><td>'+money(c.gross)+'</td><td><button class="btn small" data-edit-shift="'+esc(x.id)+'">Edit</button> <button class="btn small danger" data-delete-shift="'+esc(x.id)+'">Delete</button></td></tr>'}).join(""):'<tr><td colspan="7">'+empty("No shifts logged for "+monthLabel(selectedMonth),"Add your first shift above to estimate your pay.")+'</td></tr>';
+ $("shiftTable").innerHTML=shifts.length?shifts.map(x=>{const c=calc[x.id]||{hours:0,regular:0,overtime:0,gross:0};return '<tr><td>'+fmtDate(x.date)+'</td><td>'+(x.durationHours!==undefined?'Quick entry':esc(x.start)+'–'+esc(x.end))+(Number(x.breakMinutes)>0?'<div class="muted">'+esc(x.breakMinutes)+' min break</div>':'')+(x.note?'<div class="muted">'+esc(x.note)+'</div>':'')+'</td><td>'+formatHours(c.hours)+'</td><td>'+formatHours(c.regular)+'</td><td>'+formatHours(c.overtime)+'</td><td>'+money(c.gross)+'</td><td><button class="btn small" data-edit-shift="'+esc(x.id)+'">Edit</button> <button class="btn small danger" data-delete-shift="'+esc(x.id)+'">Delete</button></td></tr>'}).join(""):'<tr><td colspan="7">'+empty("No shifts logged for "+monthLabel(selectedMonth),"Add your first shift above to estimate your pay.")+'</td></tr>';
  const check=nextPaycheckEstimate(),payday=check.payday,payDate=new Date(payday+"T12:00:00");if(form)form.elements.nextPayday.value=payday;$("nextPayDateLabel").textContent=payDate.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});$("nextPaySummary").textContent=p.rate>0?'Pay period '+fmtDate(check.range.start)+' – '+fmtDate(check.range.end)+': '+money(check.gross)+' gross / '+money(check.deductions.net)+' estimated take-home from '+check.entries.length+' logged shift'+(check.entries.length===1?"":"s")+'.':'Enter your hourly rate to estimate take-home pay.';
  const due=state.bills.filter(b=>!b.paid&&b.due>=localDate(today)&&b.due<=payday).sort((a,b)=>a.due.localeCompare(b.due));
  $("paycheckBills").innerHTML=due.length?due.map(b=>'<div class="list-row"><div class="item-icon">▤</div><div class="item-main"><div class="item-title">'+esc(b.name)+'</div><div class="item-sub">Due '+fmtDate(b.due)+'</div></div><div class="item-right"><div class="item-money">'+money(b.amount)+'</div></div></div>').join(""):empty("No unpaid bills before payday","No unpaid bills are due between today and your next expected payday.");
@@ -842,15 +846,19 @@ $("workProfileForm").addEventListener("submit",e=>{
  if(!validAmount(rate,.01)||!validAmount(federalRate,0)||federalRate>40||!validAmount(stateRate,0)||stateRate>10||!validAmount(otherDeductions,0)){toast("Check your pay settings and enter valid amounts.","error");return}
  state.workProfile={rate,frequency:String(d.get("frequency")),nextPayday:String(d.get("nextPayday")),weekStart:Number(d.get("weekStart")),federalRate,stateRate,otherDeductions};save();e.currentTarget.dataset.loaded="true";render();toast("Pay settings saved.");
 });
+function resetShiftForm(){
+ const f=$("shiftForm");f.reset();f.elements.date.value=dateForSelectedMonth();f.elements.breakMinutes.value="0";f.querySelector('button[type="submit"]').textContent="＋ Save shift";$("cancelShiftEdit").hidden=true;editingShift=null;
+}
+$("cancelShiftEdit").addEventListener("click",resetShiftForm);
 $("shiftForm").addEventListener("submit",e=>{
- e.preventDefault();const d=new FormData(e.currentTarget),rec={date:String(d.get("date")),start:String(d.get("start")),end:String(d.get("end")),breakMinutes:Number(d.get("breakMinutes")),note:String(d.get("note")||"").trim()};
- if(!rec.date||!rec.start||!rec.end||!Number.isInteger(rec.breakMinutes)||rec.breakMinutes<0||rec.breakMinutes>720||shiftHours(rec)<=0){toast("Check the shift date, times, and unpaid break.","error");return}
- if(editingShift){const old=state.shifts.find(x=>x.id===editingShift);if(old)Object.assign(old,rec);else state.shifts.push({id:id(),...rec})}else state.shifts.push({id:id(),...rec});
- save();e.currentTarget.reset();e.currentTarget.elements.date.value=dateForSelectedMonth();e.currentTarget.elements.breakMinutes.value="0";e.currentTarget.querySelector('button[type="submit"]').textContent="＋ Save shift";editingShift=null;render();toast("Shift saved.");
+ e.preventDefault();const d=new FormData(e.currentTarget),rec={date:String(d.get("date")),durationHours:Number(d.get("hoursWorked")),breakMinutes:Number(d.get("breakMinutes")),note:String(d.get("note")||"").trim()};
+ if(!rec.date||!Number.isFinite(rec.durationHours)||rec.durationHours<=0||rec.durationHours>24||!Number.isInteger(rec.breakMinutes)||rec.breakMinutes<0||rec.breakMinutes>720||shiftHours(rec)<=0){toast("Enter a valid date, total hours, and unpaid break.","error");return}
+ if(editingShift){const old=state.shifts.find(x=>x.id===editingShift);if(old)Object.assign(old,rec,{start:"",end:""});else state.shifts.push({id:id(),...rec})}else state.shifts.push({id:id(),...rec});
+ save();resetShiftForm();render();toast("Shift saved.");
 });
 document.addEventListener("click",e=>{
  const edit=e.target.closest("[data-edit-shift]"),del=e.target.closest("[data-delete-shift]");
- if(edit){const x=state.shifts.find(y=>y.id===edit.dataset.editShift);if(!x)return;editingShift=x.id;const f=$("shiftForm");f.elements.date.value=x.date;f.elements.start.value=x.start;f.elements.end.value=x.end;f.elements.breakMinutes.value=x.breakMinutes||0;f.elements.note.value=x.note||"";f.querySelector('button[type="submit"]').textContent="Save shift changes";f.scrollIntoView({behavior:"smooth",block:"center"});}
+ if(edit){const x=state.shifts.find(y=>y.id===edit.dataset.editShift);if(!x)return;editingShift=x.id;const f=$("shiftForm");f.elements.date.value=x.date;f.elements.hoursWorked.value=shiftHours(x);f.elements.breakMinutes.value=x.breakMinutes||0;f.elements.note.value=x.note||"";f.querySelector('button[type="submit"]').textContent="Save shift changes";$("cancelShiftEdit").hidden=false;f.scrollIntoView({behavior:"smooth",block:"center"});}
  if(del){const x=state.shifts.find(y=>y.id===del.dataset.deleteShift);if(!x)return;state.shifts=state.shifts.filter(y=>y.id!==x.id);save();render();toast("Shift removed.");}
 });
 $("addPaycheckIncome").addEventListener("click",()=>{
