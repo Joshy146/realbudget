@@ -359,7 +359,7 @@ main{margin:0;padding:20px 14px 95px}
 </dialog>
 
 <dialog id="billDialog">
-  <div class="dialog-head"><h2>Add a bill</h2><button class="close-btn" data-close="billDialog" aria-label="Close">×</button></div>
+  <div class="dialog-head"><h2 id="billDialogTitle">Add a bill</h2><button class="close-btn" data-close="billDialog" aria-label="Close">×</button></div>
   <form id="billForm">
     <div class="form-grid">
       <label class="full">Bill name<input name="name" required maxlength="100" placeholder="e.g. Electricity"></label>
@@ -568,14 +568,14 @@ function transactionRow(t){
 function renderTransactions(){
  const q=$("transactionSearch").value.trim().toLowerCase(),filter=$("transactionFilter").value;
  const list=[...state.transactions].filter(t=>(filter==="all"||t.type===filter)&&[t.description,t.category,t.note].some(v=>String(v||"").toLowerCase().includes(q))).sort((a,b)=>b.date.localeCompare(a.date));
- $("transactionTable").innerHTML=list.length?list.map(t=>`<tr><td><strong>${esc(t.description)}</strong>${t.note?`<div class="muted">${esc(t.note)}</div>`:""}</td><td>${esc(t.category)}</td><td>${fmtDate(t.date)}</td><td><span class="badge ${t.type==="income"?"":"pending"}">${t.type==="income"?"Income":"Expense"}</span></td><td class="${t.type==="income"?"positive":""}">${t.type==="income"?"+":"−"}${money(t.amount)}</td><td><button class="btn small danger" data-delete-transaction="${esc(t.id)}" aria-label="Delete ${esc(t.description)}">Delete</button></td></tr>`).join(""):`<tr><td colspan="6">${empty("No matching transactions","Try another search or add a transaction.")}</td></tr>`;
+ $("transactionTable").innerHTML=list.length?list.map(t=>`<tr><td><strong>${esc(t.description)}</strong>${t.note?`<div class="muted">${esc(t.note)}</div>`:""}</td><td>${esc(t.category)}</td><td>${fmtDate(t.date)}</td><td><span class="badge ${t.type==="income"?"":"pending"}">${t.type==="income"?"Income":"Expense"}</span></td><td class="${t.type==="income"?"positive":""}">${t.type==="income"?"+":"−"}${money(t.amount)}</td><td><button class="btn small" data-edit-transaction="${esc(t.id)}">Edit</button> <button class="btn small danger" data-delete-transaction="${esc(t.id)}" aria-label="Delete ${esc(t.description)}">Delete</button></td></tr>`).join(""):`<tr><td colspan="6">${empty("No matching transactions","Try another search or add a transaction.")}</td></tr>`;
 }
 function renderBills(){
  const unpaid=state.bills.filter(b=>!b.paid),week=shiftDate(localDate(today),7);
  $("billUnpaidTotal").textContent=money(unpaid.reduce((s,b)=>s+safeNum(b.amount),0));
  $("billWeekTotal").textContent=money(unpaid.filter(b=>b.due>=localDate(today)&&b.due<=week).reduce((s,b)=>s+safeNum(b.amount),0));
  const sorted=[...state.bills].sort((a,b)=>a.due.localeCompare(b.due));
- $("billTable").innerHTML=sorted.length?sorted.map(b=>{const overdue=!b.paid&&b.due<localDate(today);return `<tr><td><strong>${esc(b.name)}</strong><div class="muted">${b.repeat==="monthly"?"Monthly":"One-time"}</div></td><td>${fmtDate(b.due)}</td><td>${money(b.amount)}</td><td><span class="badge ${b.paid?"":overdue?"overdue":"pending"}">${b.paid?"Paid":overdue?"Overdue":"Upcoming"}</span></td><td>${b.paid?`<button class="btn small" data-unpaid="${esc(b.id)}">Undo</button>`:`<button class="btn small" data-paid="${esc(b.id)}">Mark paid</button>`} <button class="btn small danger" data-delete-bill="${esc(b.id)}">Delete</button></td></tr>`}).join(""):`<tr><td colspan="5">${empty("No bills yet","Add your first bill to plan ahead.")}</td></tr>`;
+ $("billTable").innerHTML=sorted.length?sorted.map(b=>{const overdue=!b.paid&&b.due<localDate(today);return `<tr><td><strong>${esc(b.name)}</strong><div class="muted">${b.repeat==="monthly"?"Monthly":"One-time"}</div></td><td>${fmtDate(b.due)}</td><td>${money(b.amount)}</td><td><span class="badge ${b.paid?"":overdue?"overdue":"pending"}">${b.paid?"Paid":overdue?"Overdue":"Upcoming"}</span></td><td><button class="btn small" data-edit-bill="${esc(b.id)}">Edit</button> ${b.paid?`<button class="btn small" data-unpaid="${esc(b.id)}">Undo</button>`:`<button class="btn small" data-paid="${esc(b.id)}">Mark paid</button>`} <button class="btn small danger" data-delete-bill="${esc(b.id)}">Delete</button></td></tr>`}).join(""):`<tr><td colspan="5">${empty("No bills yet","Add your first bill to plan ahead.")}</td></tr>`;
 }
 function renderGoals(){
  $("goalTotalSaved").textContent=money(totalSaved());$("goalStillToGo").textContent=money(state.goals.reduce((s,g)=>s+Math.max(0,safeNum(g.target)-safeNum(g.saved)),0));
@@ -594,10 +594,22 @@ function runAffordability(){
  $("affordDescription").textContent=`${money(total)} total cost for ${$("purchaseName").value.trim()||"this purchase"}. Your estimated available amount before the purchase is ${money(base)}.`;
  const pct=base>0?Math.min(100,Math.max(0,after/base*100)):0;$("affordProgress").style.width=pct+"%";$("affordFoot").textContent=after<0?"This purchase would put your estimated budget below zero.":`You would have ${money(after)} remaining in this month's estimate. Remember unrecorded expenses and future needs.`;
 }
-function openTransaction(){
- const form=$("transactionForm");form.reset();setDefaultDate(form);$("transactionDialogTitle").textContent="Add transaction";showDialog("transactionDialog");
+let editingTransaction=null;
+function openTransaction(transaction=null){
+ editingTransaction=transaction?transaction.id:null;
+ const form=$("transactionForm");form.reset();setDefaultDate(form);
+ $("transactionDialogTitle").textContent=transaction?"Edit transaction":"Add transaction";
+ if(transaction){form.elements.description.value=transaction.description;form.elements.type.value=transaction.type;form.elements.amount.value=transaction.amount;form.elements.date.value=transaction.date;form.elements.category.value=transaction.category||"Other";form.elements.note.value=transaction.note||""}
+ showDialog("transactionDialog");
 }
-function openBill(){const form=$("billForm");form.reset();form.elements.due.value=localDate(today);showDialog("billDialog")}
+let editingBill=null;
+function openBill(bill=null){
+ editingBill=bill?bill.id:null;
+ const form=$("billForm");form.reset();form.elements.due.value=localDate(today);
+ $("billDialogTitle").textContent=bill?"Edit bill":"Add a bill";
+ if(bill){form.elements.name.value=bill.name;form.elements.amount.value=bill.amount;form.elements.due.value=bill.due;form.elements.repeat.value=bill.repeat||"once"}
+ showDialog("billDialog");
+}
 let editingGoal=null;
 function openGoal(goal=null){
  editingGoal=goal?.id||null;const form=$("goalForm");form.reset();
@@ -638,14 +650,18 @@ $("transactionSearch").addEventListener("input",renderTransactions);$("transacti
 $("transactionForm").addEventListener("submit",e=>{
  e.preventDefault();const f=e.currentTarget,d=new FormData(f),amount=Number(d.get("amount"));
  if(!validAmount(amount,.01)){toast("Enter an amount greater than zero.","error");return}
- state.transactions.push({id:id(),description:String(d.get("description")).trim(),type:d.get("type"),amount,date:d.get("date"),category:d.get("category"),note:String(d.get("note")||"").trim()});
- save();render();closeDialog("transactionDialog");toast("Transaction saved.");
+ const record={description:String(d.get("description")).trim(),type:d.get("type"),amount,date:d.get("date"),category:d.get("category"),note:String(d.get("note")||"").trim()};
+ if(editingTransaction){const existing=state.transactions.find(t=>t.id===editingTransaction);if(existing)Object.assign(existing,record);else state.transactions.push({id:id(),...record})}
+ else state.transactions.push({id:id(),...record});
+ save();render();closeDialog("transactionDialog");toast(editingTransaction?"Transaction updated.":"Transaction saved.");editingTransaction=null;
 });
 $("billForm").addEventListener("submit",e=>{
  e.preventDefault();const d=new FormData(e.currentTarget),amount=Number(d.get("amount"));
  if(!validAmount(amount,.01)){toast("Enter a valid bill amount.","error");return}
- state.bills.push({id:id(),name:String(d.get("name")).trim(),amount,due:d.get("due"),paid:false,repeat:d.get("repeat")});
- save();render();closeDialog("billDialog");toast("Bill added.");
+ const record={name:String(d.get("name")).trim(),amount,due:d.get("due"),repeat:d.get("repeat")};
+ if(editingBill){const existing=state.bills.find(b=>b.id===editingBill);if(existing)Object.assign(existing,record);else state.bills.push({id:id(),...record,paid:false})}
+ else state.bills.push({id:id(),...record,paid:false});
+ save();render();closeDialog("billDialog");toast(editingBill?"Bill updated.":"Bill added.");editingBill=null;
 });
 $("goalForm").addEventListener("submit",e=>{
  e.preventDefault();const d=new FormData(e.currentTarget),target=Number(d.get("target")),saved=Number(d.get("saved"));
@@ -688,7 +704,9 @@ $("clearDemo").addEventListener("click",()=>{
 });
 document.addEventListener("click",e=>{
  const b=e.target.closest("button");if(!b)return;
- if(b.dataset.paid){markPaid(b.dataset.paid,true);return}
+ if(b.dataset.editTransaction){const t=state.transactions.find(x=>x.id===b.dataset.editTransaction);if(t)openTransaction(t);return}
+  if(b.dataset.editBill){const bill=state.bills.find(x=>x.id===b.dataset.editBill);if(bill)openBill(bill);return}
+  if(b.dataset.paid){markPaid(b.dataset.paid,true);return}
  if(b.dataset.unpaid){markPaid(b.dataset.unpaid,false);return}
  if(b.dataset.deleteTransaction){
   const t=state.transactions.find(t=>t.id===b.dataset.deleteTransaction);if(!t)return;
